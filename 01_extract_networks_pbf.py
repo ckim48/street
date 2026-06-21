@@ -125,7 +125,7 @@ def truncate_tract(G, nodes_gdf, sindex, poly):
     return G.subgraph(keep).copy()
 
 
-def extract_state(state: str, year: int, limit, log_writer) -> None:
+def extract_state(state: str, year: int, limit, log_writer, only_county=None) -> None:
     tracts = tiger_tracts(state, year).sort_values("GEOID")
     if limit:
         tracts = tracts.iloc[:limit]
@@ -139,6 +139,12 @@ def extract_state(state: str, year: int, limit, log_writer) -> None:
     pbf = download_pbf(state)
     utm = tracts.estimate_utm_crs()
     counties = sorted(tracts["COUNTYFP"].unique())
+    if only_county is not None:
+        # process a single county in its own process, so an OOM-kill on one
+        # mega-county can't block the rest of the state (each county isolated)
+        counties = [c for c in counties if c == only_county]
+        if not counties:
+            raise SystemExit(f"county {only_county} not in state {state}")
     print(f"state {state}: {len(tracts)} tracts in {len(counties)} counties",
           flush=True)
     t_state = time.time()
@@ -185,6 +191,8 @@ def main() -> None:
     ap.add_argument("--state", required=True, help="2-digit state FIPS, e.g. 06")
     ap.add_argument("--year", type=int, default=2024, help="TIGER vintage")
     ap.add_argument("--limit", type=int, default=None, help="max tracts (smoke test)")
+    ap.add_argument("--county", default=None,
+                    help="3-digit COUNTYFP to process alone (per-county isolation)")
     args = ap.parse_args()
 
     if args.state not in FIPS_SLUG:
@@ -196,7 +204,7 @@ def main() -> None:
         w = csv.writer(f)
         if new_log:
             w.writerow(["GEOID", "status", "n_nodes", "n_edges"])
-        extract_state(args.state, args.year, args.limit, w)
+        extract_state(args.state, args.year, args.limit, w, only_county=args.county)
         f.flush()
 
 
