@@ -143,12 +143,15 @@ def fig_metric_profile(df, top):
     plt.close(fig); print("saved fig_metric_profile.png")
 
 
-def fig_top_networks(top, n=24):
+def fig_networks(sub, fname, title):
+    """Render the street networks of the tracts in `sub` (a slice of the ranked
+    table) as a 6-wide grid."""
+    n = len(sub)
     cols, rows = 6, (n + 5) // 6
     fig, axes = plt.subplots(rows, cols, figsize=(cols * 2.7, rows * 2.7),
                              facecolor="white")
     drawn = 0
-    for ax, (_, r) in zip(axes.ravel(), top.head(n).iterrows()):
+    for ax, (_, r) in zip(axes.ravel(), sub.iterrows()):
         p = GRAPH_DIR / f"{r.GEOID}.graphml"
         try:
             G = ox.project_graph(ox.load_graphml(p))
@@ -169,10 +172,10 @@ def fig_top_networks(top, n=24):
         drawn += 1
     for ax in axes.ravel()[n:]:
         ax.set_axis_off()
-    fig.suptitle(f"Street networks of the top {n} UOI census tracts", fontsize=13, y=0.997)
+    fig.suptitle(title, fontsize=13, y=0.997)
     fig.tight_layout(rect=(0, 0, 1, 0.98))
-    fig.savefig(RESULTS / "fig_top24_networks.png", dpi=145)
-    plt.close(fig); print(f"saved fig_top24_networks.png ({drawn} networks)")
+    fig.savefig(RESULTS / fname, dpi=145)
+    plt.close(fig); print(f"saved {fname} ({drawn} networks)")
 
 
 def main():
@@ -186,7 +189,18 @@ def main():
     fig_metric_correlation(df)
     fig_by_state(top)
     fig_metric_profile(df, top)
-    fig_top_networks(top, n=24)
+    # network grids: top, middle, and bottom 24 of the top-N
+    N = len(top)
+    mid = N // 2
+    fig_networks(top.iloc[:24],
+                 "fig_top24_networks.png",
+                 f"Street networks — ranks 1-24 of the top {N} UOI tracts")
+    fig_networks(top.iloc[mid - 12:mid + 12],
+                 "fig_mid24_networks.png",
+                 f"Street networks — ranks {mid-11}-{mid+12} (middle) of the top {N} UOI tracts")
+    fig_networks(top.iloc[-24:],
+                 "fig_last24_networks.png",
+                 f"Street networks — ranks {N-23}-{N} (bottom) of the top {N} UOI tracts")
     print("done.")
 
 
