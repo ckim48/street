@@ -20,12 +20,42 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.collections import LineCollection
+from matplotlib.lines import Line2D
 
-from uoi_common import OUT_DIR, ROOT
+from uoi_common import OUT_DIR, ROOT, DATA
 
 SAMP = OUT_DIR / "sampler_spec"
 RES = ROOT / "results" / "mcmc_spec"
 RES.mkdir(parents=True, exist_ok=True)
+
+COUNTY_FILE = DATA / "ref" / "national_county2020.txt"
+COUNTY_URL = ("https://www2.census.gov/geo/docs/reference/codes2020/"
+              "national_county2020.txt")
+# well-known city for the prominent counties (shown in parentheses if present)
+CITY = {"17031": "Chicago", "36047": "Brooklyn", "36081": "Queens",
+        "36061": "Manhattan", "36005": "Bronx", "36085": "Staten Is.",
+        "55079": "Milwaukee", "53033": "Seattle", "27053": "Minneapolis",
+        "11001": "Washington DC", "08031": "Denver", "06075": "San Francisco",
+        "26163": "Detroit", "34017": "Hoboken/Jersey City", "32003": "Las Vegas",
+        "41051": "Portland", "26145": "Saginaw", "16001": "Boise"}
+
+
+def place_lookup() -> dict:
+    """county FIPS5 -> 'County Name, ST' (with a city hint where well-known).
+    Census national county file is cached under data/ref/ (downloaded once)."""
+    if not COUNTY_FILE.exists():
+        import urllib.request
+        COUNTY_FILE.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(COUNTY_URL, COUNTY_FILE)
+    out = {}
+    for line in COUNTY_FILE.read_text().splitlines()[1:]:
+        st, stfp, cofp, _ns, name, *_ = line.split("|")
+        fips5 = stfp + cofp
+        label = f"{name}, {st}"
+        if fips5 in CITY:
+            label = f"{CITY[fips5]} — {label}"
+        out[fips5] = label
+    return out
 
 METRICS = ["link_node_ratio", "connected_node_ratio", "intersection_density",
            "median_block_length_ft", "walking_circuity", "pedshed_reach"]
@@ -50,7 +80,11 @@ def load_summary() -> pd.DataFrame:
             row[m + "_real"] = d["u_real"][i]
             row[m + "_best"] = d["best_uoi"][i]
         rows.append(row)
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    places = place_lookup()
+    df["county"] = df.GEOID.str[:5]
+    df["place"] = df.county.map(places).fillna(df.county)
+    return df
 
 
 def fig_dtf(df):
@@ -99,6 +133,34 @@ def _draw(ax, G, pos, color, lw):
     ax.set_aspect("equal"); ax.set_axis_off(); ax.autoscale()
 
 
+def _draw_diff(ax, Gr, pr, Go, po, lw=0.8, show_removed=True):
+    """Draw the optimal network over the real one, highlighting the CHANGES:
+    kept edges = light blue, added/moved edges = red, removed edges = red dashed.
+    Returns (n_added, n_removed, n_moved)."""
+    re = {frozenset(e): e for e in Gr.edges}
+    oe = {frozenset(e): e for e in Go.edges}
+    kept, moved, added, removed = [], [], [], []
+    for k, (u, v) in oe.items():
+        if k in re:
+            if pr.get(u) == po.get(u) and pr.get(v) == po.get(v):
+                kept.append([po[u], po[v]])
+            else:
+                moved.append([po[u], po[v]])      # endpoint shifted
+        else:
+            added.append([po[u], po[v]])          # new edge / subdivision
+    for k, (u, v) in re.items():
+        if k not in oe:
+            removed.append([pr[u], pr[v]])         # deleted edge / merge
+    if show_removed and removed:
+        ax.add_collection(LineCollection(removed, colors="#d62728", linewidths=lw,
+                                         linestyles=(0, (3, 2)), alpha=0.6))
+    ax.add_collection(LineCollection(kept, colors="#9fb6d6", linewidths=lw))
+    ax.add_collection(LineCollection(moved + added, colors="#d62728",
+                                     linewidths=lw * 1.5))
+    ax.set_aspect("equal"); ax.set_axis_off(); ax.autoscale()
+    return len(added), len(removed), len(moved)
+
+
 def fig_best_networks(df, n_examples):
     sub = df.sort_values("distance_to_frontier", ascending=False).head(n_examples)
     cols = 4
@@ -116,10 +178,10 @@ def fig_best_networks(df, n_examples):
         d = pickle.load(open(p, "rb"))
         _draw(ax, d["G_real"], d["pos_real"], "#bbbbbb", 0.7)
         _draw(ax, d["best_G"], d["best_pos"], "#1f5fbf", 0.7)
-        ax.set_title(f"{r.GEOID}  dtf={r.distance_to_frontier:.3f}\n"
+        ax.set_title(f"{r.place}\n{r.GEOID}  dtf={r.distance_to_frontier:.3f}  "
                      f"circ {r.walking_circuity_real:.2f}→{r.walking_circuity_best:.2f}  "
                      f"ped {r.pedshed_reach_real:.3f}→{r.pedshed_reach_best:.3f}",
-                     fontsize=7.5)
+                     fontsize=7)
     for ax in axes[len(sub):]:
         ax.set_axis_off()
     fig.suptitle("MCMC-optimal network (blue) over the real network (grey) — "
@@ -152,15 +214,17 @@ def fig_optimal_gallery(df, n):
         d = _load_pkl(r.GEOID)
         if d is None:
             ax.set_axis_off(); continue
-        _draw(ax, d["G_real"], d["pos_real"], "#cfcfcf", 0.5)
-        _draw(ax, d["best_G"], d["best_pos"], "#1f5fbf", 0.7)
-        ax.set_title(f"{r.GEOID} ({r.state})\ndtf={r.distance_to_frontier:.3f}  "
-                     f"E={r.best_E:.2f}", fontsize=7)
+        na, nr, nm = _draw_diff(ax, d["G_real"], d["pos_real"],
+                                d["best_G"], d["best_pos"], lw=0.6)
+        ax.set_title(f"{r.place}\n{r.GEOID}  dtf={r.distance_to_frontier:.3f}  "
+                     f"(+{na} −{nr} ⇄{nm})", fontsize=7)
         drawn += 1
     for ax in axes[len(sub):]:
         ax.set_axis_off()
-    fig.suptitle(f"MCMC-optimal street networks (blue) over real (grey) — "
-                 f"top {n} by improvement", fontsize=13, y=0.995)
+    fig.suptitle(f"MCMC-optimal networks vs real — top {n} by improvement   "
+                 f"(red = added/moved edges, red-dashed = removed, "
+                 f"blue = unchanged; +added −removed ⇄moved)",
+                 fontsize=11, y=0.997)
     fig.tight_layout(rect=(0, 0, 1, 0.98))
     fig.savefig(RES / "fig_optimal_gallery.png", dpi=150); plt.close(fig)
     print(f"saved fig_optimal_gallery.png ({drawn} networks)")
@@ -178,10 +242,17 @@ def export_individual(df, n):
         fig, (a1, a2) = plt.subplots(1, 2, figsize=(8.4, 4.4), facecolor="white")
         _draw(a1, d["G_real"], d["pos_real"], "#444444", 0.8)
         a1.set_title("real", fontsize=10)
-        _draw(a2, d["best_G"], d["best_pos"], "#1f5fbf", 0.9)
-        a2.set_title("MCMC-optimal", fontsize=10)
+        na, nr, nm = _draw_diff(a2, d["G_real"], d["pos_real"],
+                                d["best_G"], d["best_pos"], lw=0.9)
+        a2.set_title(f"MCMC-optimal  —  changes in red "
+                     f"(+{na} added, −{nr} removed, ⇄{nm} moved)", fontsize=9)
+        handles = [Line2D([0], [0], color="#d62728", lw=2, label="added / moved"),
+                   Line2D([0], [0], color="#d62728", lw=1.4, ls=(0, (3, 2)),
+                          label="removed"),
+                   Line2D([0], [0], color="#9fb6d6", lw=2, label="unchanged")]
+        a2.legend(handles=handles, fontsize=7, loc="lower right", framealpha=0.85)
         fig.suptitle(
-            f"#{rank}  {r.GEOID} ({r.state})   dtf={r.distance_to_frontier:.3f}\n"
+            f"#{rank}  {r.place}   ({r.GEOID})   dtf={r.distance_to_frontier:.3f}\n"
             f"link-node {r.link_node_ratio_real:.2f}→{r.link_node_ratio_best:.2f}   "
             f"circuity {r.walking_circuity_real:.2f}→{r.walking_circuity_best:.2f}   "
             f"pedshed {r.pedshed_reach_real:.3f}→{r.pedshed_reach_best:.3f}   "
