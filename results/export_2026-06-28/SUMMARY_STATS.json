@@ -1,0 +1,78 @@
+{
+  "national": {
+    "tracts_total": 84446,
+    "tracts_with_metrics": 84395,
+    "states_covered": 52,
+    "metric_medians": {
+      "link_node_ratio": 1.3262,
+      "connected_node_ratio": 0.769,
+      "intersection_density": 260.274,
+      "median_block_length_ft": 166.606,
+      "walking_circuity": 1.5149,
+      "pedshed_reach": 0.0034
+    },
+    "metric_means": {
+      "link_node_ratio": 1.3286,
+      "connected_node_ratio": 0.7587,
+      "intersection_density": 492.1886,
+      "median_block_length_ft": 223.8476,
+      "walking_circuity": 1.5664,
+      "pedshed_reach": 0.0046
+    },
+    "ok_flag_rates": {
+      "lnr_ok": 0.3175,
+      "cnr_ok": 0.6924,
+      "inter_density_ok": 0.6298,
+      "block_ok": 0.9455,
+      "circuity_ok": 0.7583
+    }
+  },
+  "mcmc": {
+    "tracts_total": 1800,
+    "top1000_subset": 1000,
+    "national_sample_subset": 800,
+    "dtf_median": 0.0445,
+    "dtf_mean": 0.2718,
+    "dtf_p90": 0.7948,
+    "near_optimal_frac_lt0.05": 0.5128,
+    "top1000_dtf_median": 0.0106,
+    "national_dtf_median": 0.6165
+  },
+  "gnn_surrogate": {
+    "trained_on": 1800,
+    "note": "elite top-1000 + 800 national stratified",
+    "test_R2_dtf": 0.934,
+    "test_R2_log": 0.94,
+    "test_spearman": 0.926,
+    "test_MAE": 0.0479,
+    "n_test": 270,
+    "prev_top1000_only": {
+      "test_R2": "0.27-0.38",
+      "test_spearman": "0.72-0.83"
+    }
+  },
+  "gnn_national_prediction": {
+    "tracts_predicted": 84424,
+    "in_distribution": 79869,
+    "ood_flagged": 4555,
+    "ood_frac": 0.054,
+    "dtf_median": 0.6392,
+    "dtf_mean": 0.5702,
+    "dtf_p25": 0.4248,
+    "dtf_p75": 0.7543,
+    "most_optimal_states": [
+      "11",
+      "49",
+      "36",
+      "38",
+      "17"
+    ],
+    "least_optimal_states": [
+      "37",
+      "13",
+      "54",
+      "15",
+      "72"
+    ]
+  }
+}

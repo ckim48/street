@@ -1,0 +1,8 @@
+grid chain0: E=-0.053 uoi=[1.82, 0.993, 2.53e+03, 106, 1.21, 0.0212]
+grid chain1: E=-0.162 uoi=[1.86, 0.984, 2.63e+03, 108, 1.21, 0.0236]
+organic chain0: E=-0.407 uoi=[1.99, 0.957, 2.48e+03, 99.5, 1.24, 0.0286]
+organic chain1: E=-0.213 uoi=[2.21, 0.968, 2.58e+03, 103, 1.2, 0.0367]
+hybrid chain0: E=-0.241 uoi=[2.02, 0.984, 3.78e+03, 107, 1.21, 0.0374]
+hybrid chain1: E=-0.154 uoi=[2.05, 0.971, 3.75e+03, 106, 1.22, 0.042]
+saved /home/wnlab/CK_street/results/synth/fig_synth_networks.png
+saved /home/wnlab/CK_street/results/synth/synth_metrics.csv  (6 networks)

@@ -264,10 +264,11 @@ def predict(args):
 
     rows, t0 = [], time.time()
 
-    # the surrogate is only trained on the top-1000 (elite urban grids); for
-    # tracts far outside that distribution the prediction is extrapolation, so
-    # we flag them (max |standardized global feature| > OOD_Z) and clamp.
-    OOD_Z, DTF_CAP = 4.0, 0.5
+    # the surrogate is trained on the combined 1800 sample (top-1000 elite +
+    # 800 stratified national), so it is nationally valid; we still flag tracts
+    # far outside that distribution (max |standardized global feature| > OOD_Z)
+    # and clamp to the natural dtf range [0,1] (relative hypervolume shortfall).
+    OOD_Z, DTF_CAP = 4.0, 1.0
 
     def infer(data_list, gids):
         if not data_list:
@@ -277,9 +278,12 @@ def predict(args):
             z = (d.gfeat - g_mean) / g_std
             zmax.append(float(z.abs().max()))
             d.gfeat = z
-        b = next(iter(DataLoader(data_list, batch_size=len(data_list)))).to(DEVICE)
+        preds = []
         with torch.no_grad():
-            p = np.expm1(model(b).cpu().numpy() * y_std + y_mean)
+            for b in DataLoader(data_list, batch_size=256):  # mini-batch: GPU-mem safe
+                b = b.to(DEVICE)
+                preds.append(model(b).cpu().numpy())
+        p = np.expm1(np.concatenate(preds) * y_std + y_mean)
         for g, v, zz in zip(gids, p, zmax):
             rows.append((g, float(np.clip(v, 0.0, DTF_CAP)), zz > OOD_Z, zz))
 

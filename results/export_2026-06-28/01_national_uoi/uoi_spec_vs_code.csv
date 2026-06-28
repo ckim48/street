@@ -1,0 +1,8 @@
+#,metric,PDF_정의_계산방식,PDF_기준_방향,코드_계산방식,코드_변수,핵심_차이,상태
+1,Link-Node Ratio,엣지수 / 노드수,"Rec ≥1.4 (1.2–1.6), Higher","무방향·투영 그래프에서 m/n (m=엣지수, n=노드수)",uoi_connectivity,사실상 동일 (코드는 bounds 판정 없음),일치
+2,Connected Node Ratio,교차점 / (교차점 + 막다른길) = deg≥3 / (deg≥3 + deg1),"Rec ≥0.7, <0.5 나쁨, Higher","계산 안 함 (재료 n_intersections, dead_end_frac만 존재)",(없음),비율로 조합 안 함 → 미구현,미구현
+3,Intersection Density,교차점 수 / mile² (면적당),"> 140 /mile², Higher",deg≥3 노드 '개수'만 (면적 정규화 없음),n_intersections,mile²로 안 나눔 → 절대개수 vs 밀도,불완전
+4,Median Block Length,블록 길이의 중앙값(또는 평균),"Rec ≤400–600ft, Lower",계산 안 함,(없음),완전 미구현,미구현
+5,Walking Circuity,OD(출발-도착)쌍의 네트워크거리/직선거리 평균,"Rec 1.2–1.7 (≥1.8 나쁨), Lower","엣지단위 circuity=Σ엣지길이/Σ엣지직선거리(길이가중), 그 역수=efficiency","uoi_efficiency, circuity_avg",OD쌍 아닌 엣지단위 + 역수로 방향반전(Lower→Higher),방식상이
+6,Structural Pedshed Reach,h3 격자점→최근접노드→400m Dijkstra→도달 도로길이 합 / 원(400m)면적,"Rec 60% pedshed, Higher",그래프노드(≤500표본)→800m Dijkstra→도달 '노드 개수'−1 의 평균,"uoi_accessibility, reach_mean",시작점(h3 vs 노드)·컷오프(400 vs 800m)·측정량(도로길이/면적 vs 노드개수)·정규화(있음 vs 없음) 전부 다름,방식상이
++,(equity),PDF 표에 없음,-,1 − Gini(reach 분포),"uoi_equity, reach_gini",설계에 없는 코드 추가 항목,코드추가
