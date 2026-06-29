@@ -27,14 +27,20 @@ UOI = ["UOI_score", "link_node_ratio", "connected_node_ratio",
        "intersection_density", "median_block_length_ft",
        "walking_circuity", "pedshed_reach"]
 # outcome: (column, friendly label, "good" direction higher/lower)
-OUT = [
+OUT_ALL = [
     ("mobility_kfr_p25",        "Econ. mobility (kid inc. rank, p25)", "higher"),
     ("incarceration_p25",       "Incarceration rate (p25)",            "lower"),
     ("eviction_filing_rate",    "Eviction filing rate",                "lower"),
+    ("ped_fatal_per_100k_pop_yr", "Pedestrian fatalities /100k pop/yr","lower"),
     ("ped_fatal_per_100km2_yr", "Pedestrian fatalities /100km^2/yr",   "lower"),
     ("stable_job_share",        "Stable-job share (CE03/C000)",        "higher"),
     ("job_density_per_sqkm",    "Job density /km^2",                    "higher"),
+    ("pct_bachelor_plus",       "Bachelor's degree+ share (25+)",      "higher"),
+    ("pct_white",               "White-alone share",                   "n/a"),
+    ("pct_black",               "Black-alone share",                   "n/a"),
+    ("pct_hispanic",            "Hispanic/Latino share",               "n/a"),
 ]
+OUT = [o for o in OUT_ALL if o[0] in p.columns]   # only outcomes present in the panel
 
 # ---------------- Spearman matrix ----------------
 rho = pd.DataFrame(index=UOI, columns=[o[0] for o in OUT], dtype=float)
@@ -68,8 +74,13 @@ fig.tight_layout(); fig.savefig(RES / "fig_corr_heatmap.png", dpi=140); plt.clos
 print(f"saved {RES/'fig_corr_heatmap.png'}")
 
 # ---------------- scatter panel: UOI_score vs each outcome ----------------
-fig, axes = plt.subplots(2, 3, figsize=(16, 9), facecolor="white")
-for ax, (col, lab, _) in zip(axes.ravel(), OUT):
+ncol = 3
+nrow = int(np.ceil(len(OUT) / ncol))
+fig, axes = plt.subplots(nrow, ncol, figsize=(5.3 * ncol, 4.5 * nrow), facecolor="white")
+axes = np.atleast_1d(axes).ravel()
+for ax in axes[len(OUT):]:
+    ax.axis("off")
+for ax, (col, lab, _) in zip(axes, OUT):
     d = p[["UOI_score", col]].dropna()
     if col in ("eviction_filing_rate", "ped_fatal_per_100km2_yr", "job_density_per_sqkm"):
         d = d[d[col] <= d[col].quantile(0.99)]          # clip extreme tail for display
