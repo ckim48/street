@@ -1,0 +1,3 @@
+model,beta_UOI,t,n
+UOI | density+income+race+stateFE,0.21,36.6,83199
+UOI | + walk-to-work share (exposure),0.214,36.5,83199

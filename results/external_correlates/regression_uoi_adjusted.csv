@@ -1,0 +1,8 @@
+outcome,raw_spearman,adj_beta_UOI,t,p,n
+Econ. mobility (p25),-0.11,-0.014,-2.9,0.0038993660032562057,59527
+Incarceration (p25),0.105,0.044,6.9,4.851918640962921e-12,59432
+Eviction filing rate,0.236,-0.144,-17.1,4.930273280307642e-65,27486
+Pedestrian fatalities /100k pop,0.084,0.21,36.6,2.1107433311357846e-291,83199
+Stable-job share,0.032,0.164,28.4,3.7975202548171966e-176,81591
+Job density,0.815,0.381,69.6,0.0,81591
+Bachelor's+ share,0.171,0.275,70.4,0.0,83226
