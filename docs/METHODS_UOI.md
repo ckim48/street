@@ -15,7 +15,30 @@ date: 2026-07-02
 | 07 | `07_gnn_surrogate.py` | GNN 서로게이트로 전국 ~84k tract에 dtf 예측 확장 |
 | 08 | `08b`–`08e` | 사회경제 지표(ACS, Opportunity Atlas, FARS 등)와의 상관·회귀 분석 |
 
-# 1. UOI 지표 6개 (Stage 2)
+# 1. 데이터 추출 및 전처리 (Stage 1)
+
+## 1.1 데이터 소스
+
+- **Census TIGER/Line (2024 vintage)** — 주(state)별 census tract 경계 shapefile을 다운로드하여 GEOID(11자리), 토지면적 ALAND, 수역면적 AWATER, 폴리곤 geometry를 추출한다 (EPSG:4326). Tract 속성은 `tracts_{state}.gpkg`로 저장되어 이후 모든 단계(면적 정규화, MCMC 폴리곤 제약, 패널 조인)에서 재사용된다.
+- **OpenStreetMap 보행 네트워크** — 두 가지 추출 경로:
+  - *Overpass API* (파일럿): county 단위 쿼리 후 로컬 분할. 전국 기준 tract별 쿼리 84,414회 대신 county별 ~3,200회로 API 부하를 낮춘다.
+  - *Geofabrik state `.pbf`* (전국 스케일, 기본): 주별 `.pbf` extract를 내려받아 pyrosm으로 로컬 파싱. 대형 주의 전체 walk 그래프는 700만+ 노드로 메모리 초과가 나므로, **county 단위로** 해당 county bbox만 파싱하여 peak memory를 제한한다.
+- **외부 사회경제 데이터** (Stage 8에서 조인): Opportunity Atlas(경제 이동성·수감률), Eviction Lab(강제퇴거율, 2014–18 평균), FARS(보행자 사망 사고 2017–21, 좌표 spatial join), LODES8(일자리 수·안정 일자리 비율), ACS 5-year(인구, 소득, 인종, 학력, walk-to-work share).
+
+## 1.2 네트워크 추출 절차
+
+1. **County 폴리곤 구성**: county 내 tract 폴리곤의 union을 UTM으로 투영해 **300 m 버퍼**를 적용한다 — county 경계에 걸친 도로가 잘려나가 경계부 tract의 지표가 왜곡되는 것을 방지.
+2. **보행 그래프 생성**: OSMnx `network_type="walk"` 필터로 보행 가능 도로만 취하고(`retain_all=True`, `truncate_by_edge=True`), OSM boolean 태그(`oneway`, `reversed`)를 정규화한 뒤 **위상 단순화**(`simplify_graph`)로 교차로-간 세그먼트 토폴로지로 축약한다.
+3. **Tract 분할**: county 그래프를 tract 폴리곤별 부분그래프로 자른다. 규칙은 truncate-by-edge — 폴리곤 내부 노드와 그 직접 이웃 노드를 포함시켜 경계를 가로지르는 엣지를 보존한다. county 전체에 공간 인덱스(R-tree)를 한 번 구축해 tract별 비용이 그래프 전체가 아닌 근방 노드 수에 비례하게 한다. 결과는 tract별 `{GEOID}.graphml`.
+4. **견고성**: 모든 단계는 재개 가능(이미 추출된 tract 스킵)하고, 도로가 없는 tract(수역·공원 등)나 county 단위 실패는 `extract_log.csv`에 기록하되 전체 실행을 중단시키지 않는다. 메가-county는 별도 프로세스로 격리해 OOM이 주 전체를 막지 못하게 한다.
+
+## 1.3 전처리 (분석 전 공통 처리)
+
+- **지표 계산용 (Stage 2)**: 그래프를 투영 CRS로 변환 후 무향화한다. 노드 차수로 교차로($\deg\ge3$)와 막다른길($\deg=1$)을 분류하며, 노드 5개 미만의 tract는 `too_small`로 제외한다.
+- **MCMC 상태 초기화용 (Stage 4–5)**: 투영 무향 **단순 그래프**로 변환 — self-loop 제거, 최대 연결 성분만 유지, 곡선 geometry를 직선 엣지로 추상화하고 길이를 유클리드 거리로 재계산한다(실제 네트워크도 동일 추상화로 재채점하여 비교 공정성 유지). Tract 폴리곤은 20 m 버퍼를 적용해 노드 제약 영역으로 쓴다.
+- **패널 구축용 (Stage 8b)**: 모든 외부 데이터를 11자리 GEOID로 표준화해 조인한다(FARS는 사고 좌표를 tract 폴리곤에 spatial join). ALAND를 km²로 환산해 인구밀도·일자리밀도의 분모로 쓰고, 파일럿/중복 레이어는 제거한다.
+
+# 2. UOI 지표 6개 (Stage 2)
 
 Tract별 무향 투영 그래프 $G=(V,E)$, $n=|V|$, $m=|E|$에서 계산한다.
 
@@ -37,14 +60,14 @@ $$C = \mathbb{E}_{(s,t)}\!\left[\frac{d_{\mathrm{net}}(s,t)}{d_{\mathrm{euc}}(s,
 **6) Pedshed reach** (높을수록 좋음) — tract 내부 H3 res-9 격자점 $p$마다 최근접 노드로 스냅 후, 네트워크 거리 400 m ego-graph 내 도로 총연장을 반경 400 m 원판 면적으로 정규화:
 $$R = \mathbb{E}_{p \in \mathrm{H3}}\!\left[\frac{\sum_{e \in \mathrm{ego}(p,\,400\mathrm{m})} \ell_e}{\pi \cdot 400^2}\right]$$
 
-# 2. Composite UOI score (Stage 3)
+# 3. Composite UOI score (Stage 3)
 
 각 지표를 전국 백분위 순위로 변환하고(방향 정렬: block length와 circuity는 반전), 6개 백분위의 평균을 취한다:
 $$\mathrm{UOI\_score} = \frac{1}{6}\sum_{i=1}^{6} \mathrm{pct}_i \in [0,1]$$
 
 이 점수로 전국 tract를 순위화하여 top-1000을 선정한다. (구버전 `02_compute_uoi.py`의 4차원 — connectivity, efficiency, accessibility, equity $=1-\mathrm{Gini}(\mathrm{reach})$ — 은 단일 점수로 합치지 않고 Pareto frontier만 표시한다.)
 
-# 3. RJ-MCMC 반사실 네트워크 탐색 (Stage 4–5)
+# 4. RJ-MCMC 반사실 네트워크 탐색 (Stage 4–5)
 
 **상태공간.** tract 폴리곤 내부의 물리적으로 타당한 평면 그래프. 엣지는 직선으로 추상화하며, 실제 네트워크도 같은 추상화로 재채점하여 비교의 공정성을 유지한다.
 
@@ -86,13 +109,13 @@ $$\mathrm{dtf} = 1 - \frac{HV(\mathrm{real})}{HV(\mathrm{front})} \in [0, 1]$$
 
 $\mathrm{dtf}=0$이면 실제 네트워크가 이미 Pareto 최적이고, 값이 클수록 같은 제약 하에서 개선 여지가 크다.
 
-# 4. 가상 네트워크 합성 (Stage 6)
+# 5. 가상 네트워크 합성 (Stage 6)
 
 실제 참조 네트워크가 없으므로, top-1000 tract의 지표 중앙값을 target으로 하는 "reach-or-better" 보상을 쓴다. 차원별 보상 $r_i \in (-1, 0]$은 목표 도달·초과 시 0에서 plateau하며,
 $$E = \sum_{i=1}^{6} w_i\, r_i, \qquad w \sim \mathrm{Dirichlet}(\mathbf{1}_6)$$
 최대값 $E=0$은 "모든 지표가 top-1000 벤치마크 달성"을 뜻한다. 시드 아키타입은 gridded / organic(Delaunay) / hybrid 3종.
 
-# 5. GNN 서로게이트 (Stage 7)
+# 6. GNN 서로게이트 (Stage 7)
 
 MCMC로 라벨링된 1,000개 tract에서 그래프 수준 회귀 $G \mapsto \mathrm{dtf}$를 학습하여, 전국 ~84k tract를 forward pass(~ms/tract)로 채점한다.
 
@@ -100,7 +123,7 @@ MCMC로 라벨링된 1,000개 tract에서 그래프 수준 회귀 $G \mapsto \ma
 - 모델: 3× GraphSAGE → global mean|max pooling → MLP → scalar
 - 주의: dtf 라벨이 미수렴 MCMC 산출($\hat R$ 중앙값 ~1.6)이라 노이즈가 있으며, 서로게이트의 달성 가능 $R^2$은 라벨 품질에 의해 상한이 정해진다. 순위상관을 병행 보고한다.
 
-# 6. 사회경제 상관·회귀 분석 (Stage 8)
+# 7. 사회경제 상관·회귀 분석 (Stage 8)
 
 **조정 회귀 (8d).** 밀도·소득·인종 교란과 주(state) 고정효과를 통제한 표준화 OLS:
 $$z(Y) = \beta_0 + \beta_{\mathrm{UOI}}\, z(\mathrm{UOI}) + \beta_1\, z(\log_{10}\rho_{\mathrm{pop}}) + \beta_2\, z(\log_{10}\mathrm{income}) + \beta_3\, z(\mathrm{pct\_white}) + \mathrm{state\ FE} + \varepsilon$$
