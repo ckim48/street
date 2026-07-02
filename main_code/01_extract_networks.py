@@ -1,15 +1,10 @@
-"""Stage 1: extract per-tract pedestrian street networks from OpenStreetMap.
+"""Stage 1: per-tract pedestrian street networks from OpenStreetMap (Overpass).
 
-Strategy: one Overpass download per county (not per tract), then split the
-county graph into tract subgraphs locally with truncate_graph_polygon.
-This keeps API load at ~3,200 requests for the full U.S. instead of 84,414.
+One walk-network download per county, split into tract subgraphs with
+truncate_graph_polygon. Resumable: existing GraphML tracts are skipped;
+failures are logged to data/outputs/extract_log.csv.
 
-Usage:
-    python 01_extract_networks.py --state 06 --county 075          # one county
-    python 01_extract_networks.py --state 06                       # whole state
-
-Resumable: tracts with an existing GraphML are skipped. Failures (e.g. tracts
-with no streets, typically water) are recorded in data/outputs/extract_log.csv.
+Usage: python 01_extract_networks.py --state 06 [--county 075]
 """
 from __future__ import annotations
 

@@ -1,37 +1,32 @@
 """Stage 4: Reversible-Jump MCMC sampler with parallel tempering.
 
-For each deep-analysis tract, explores the space of physically plausible
-street networks inside the tract polygon and finds high-UOI counterfactuals.
+Per deep-analysis tract, samples street networks inside the tract polygon and
+finds high-UOI counterfactuals.
 
 State        simple undirected graph; nodes have coordinates, edges are
-             straight segments (real curved geometry is abstracted away, and
-             the REAL network is re-scored under the same abstraction so the
-             comparison is apples-to-apples).
+             straight segments (the real network is re-scored under the same
+             abstraction).
 Moves        shift node | add edge | remove edge | subdivide edge (add node)
-             | merge degree-2 node (remove node) — each paired with its
-             reverse, with counted Hastings ratios (see APPROXIMATIONS).
-Constraints  planarity (no segment crossings), connectedness, degree <= 5,
-             nodes inside tract polygon, min node spacing, edge length bounds.
-Target       pi(G) proportional to exp(SHARP * beta * E(G)) where
-             E(G) = sum_i w_i * ln(u_i(G) / u_i(G_real)) over the 4 UOI dims
-             (log-ratio vs. the real network -> scale-free). Each chain draws
-             its weight vector w ~ Dirichlet(1,1,1,1); replicas share w so
-             Gelman-Rubin R-hat is well-defined per weight vector.
-Tempering    geometric beta ladder, state swaps between adjacent temperatures.
+             | merge degree-2 node (remove node), each with its reverse and
+             counted Hastings ratios.
+Constraints  planarity, connectedness, degree <= 5, nodes inside tract
+             polygon, min node spacing, edge length bounds.
+Target       pi(G) prop. exp(SHARP * beta * E(G)),
+             E(G) = sum_i w_i * ln(u_i(G) / u_i(G_real)) over the 4 UOI dims.
+             Each chain draws w ~ Dirichlet(1,1,1,1); replicas share w so
+             R-hat is defined per weight vector.
+Tempering    geometric beta ladder, swaps between adjacent temperatures.
 Outputs      per tract: posterior UOI cloud (cold chains), Pareto frontier,
-             real network's relative hypervolume shortfall ("distance to
-             frontier"), best counterfactual network, convergence diagnostics.
+             real network's relative hypervolume shortfall, best
+             counterfactual network, convergence diagnostics.
 
-APPROXIMATIONS (documented for the paper, to tighten later):
-- subdivide/merge position-proposal density treated as uniform-disk both ways;
-- anchor set for accessibility/efficiency is a fixed set of coordinates
-  snapped to the nearest current node at evaluation time;
-- accessibility = mean reachable street length within 800 m walk from anchors;
-  efficiency = 1 / mean anchor-pair circuity (network / euclidean distance).
+Approximations: subdivide/merge position-proposal density treated as
+uniform-disk both ways; anchors are fixed coordinates snapped to the nearest
+current node at evaluation time; accessibility = mean reachable street length
+within 800 m of anchors; efficiency = 1 / mean anchor-pair circuity.
 
 Usage:
-    python 04_sampler.py --geoids 06075012802 06075021600 06075030500 \
-        --iters 12000 --temps 4 --weights 2 --replicas 2
+    python 04_sampler.py --geoids <GEOID...> --iters 12000 --temps 4 --weights 2 --replicas 2
 """
 from __future__ import annotations
 

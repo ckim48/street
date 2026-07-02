@@ -1,21 +1,11 @@
-"""Stage 1 (Geofabrik/pbf): per-tract pedestrian networks from state .pbf
-extracts — the robust full-scale alternative to the Overpass-based
-01_extract_networks.py.
+"""Stage 1 (pbf): per-tract pedestrian networks from Geofabrik state extracts.
 
-Download one Geofabrik extract per state, then process it COUNTY BY COUNTY:
-for each county, parse only that county's bbox out of the .pbf with pyrosm,
-build + simplify the walk graph, and split it into per-tract subgraphs. Going
-county-by-county (instead of whole-state) bounds peak memory — a whole-state
-walk graph for a large state is ~7M+ nodes and OOMs a 62 GB box.
-
-Usage:
-    python 01_extract_networks_pbf.py --state 11          # DC (small smoke test)
-    python 01_extract_networks_pbf.py --state 01          # Alabama
-    python 01_extract_networks_pbf.py --state 06 --limit 20
-
-Resumable: tracts with an existing GraphML are skipped, and a county whose
-tracts are all done is never rebuilt. Failures are recorded in
+Downloads one .pbf per state, parses each county's bbox with pyrosm, builds
+and simplifies the walk graph, and splits it into per-tract subgraphs.
+Resumable: existing GraphML tracts are skipped; failures are logged to
 data/outputs/extract_log.csv.
+
+Usage: python 01_extract_networks_pbf.py --state 06 [--limit 20]
 """
 from __future__ import annotations
 
@@ -84,12 +74,11 @@ def _as_bool(v) -> bool:
 
 
 def build_graph_for_area(pbf_path: Path, poly):
-    """osmnx-compatible, simplified walk graph for one county-sized polygon.
+    """Simplified osmnx-compatible walk graph for one polygon.
 
-    pyrosm parses only `poly`'s bbox from the .pbf (bounded memory). Boolean
-    OSM tags are normalized so the GraphML round-trips through Stage 2, and the
-    graph is simplified to the intersection topology used by the SF pilot.
-    Returns None if the area has no walkable network.
+    pyrosm parses only `poly`'s bbox from the .pbf. Boolean OSM tags are
+    normalized so the GraphML round-trips through Stage 2. Returns None if
+    the area has no walkable network.
     """
     osm = OSM(str(pbf_path), bounding_box=poly)
     nodes, edges = osm.get_network(network_type="walking", nodes=True)
@@ -105,10 +94,9 @@ def build_graph_for_area(pbf_path: Path, poly):
 
 
 def truncate_tract(G, nodes_gdf, sindex, poly):
-    """Subgraph of G for one tract: nodes inside the polygon plus their direct
-    neighbors (the truncate_by_edge rule, so boundary-crossing edges survive).
-    Uses a county-wide spatial index built once, so per-tract cost scales with
-    nodes near the tract rather than the whole graph.
+    """Subgraph for one tract: nodes inside the polygon plus their direct
+    neighbors (truncate_by_edge behavior). `sindex` is a county-wide node
+    spatial index.
     """
     cand = list(sindex.intersection(poly.bounds))
     if not cand:
@@ -140,8 +128,7 @@ def extract_state(state: str, year: int, limit, log_writer, only_county=None) ->
     utm = tracts.estimate_utm_crs()
     counties = sorted(tracts["COUNTYFP"].unique())
     if only_county is not None:
-        # process a single county in its own process, so an OOM-kill on one
-        # mega-county can't block the rest of the state (each county isolated)
+        # single-county mode (run each county in its own process)
         counties = [c for c in counties if c == only_county]
         if not counties:
             raise SystemExit(f"county {only_county} not in state {state}")
@@ -160,7 +147,7 @@ def extract_state(state: str, year: int, limit, log_writer, only_county=None) ->
         t0 = time.time()
         try:
             G = build_graph_for_area(pbf, poly)
-        except Exception as e:  # one bad county must not abort the state
+        except Exception as e:  # log and continue with next county
             for t in todo:
                 log_writer.writerow([t.GEOID, f"county_err: {e}", 0, 0])
             print(f"  county {state}{county}: ERROR {e}", flush=True)
@@ -190,9 +177,9 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--state", required=True, help="2-digit state FIPS, e.g. 06")
     ap.add_argument("--year", type=int, default=2024, help="TIGER vintage")
-    ap.add_argument("--limit", type=int, default=None, help="max tracts (smoke test)")
+    ap.add_argument("--limit", type=int, default=None, help="max tracts")
     ap.add_argument("--county", default=None,
-                    help="3-digit COUNTYFP to process alone (per-county isolation)")
+                    help="3-digit COUNTYFP to process alone")
     args = ap.parse_args()
 
     if args.state not in FIPS_SLUG:

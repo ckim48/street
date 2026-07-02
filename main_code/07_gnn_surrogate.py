@@ -1,27 +1,18 @@
 """Stage 6-7: GNN surrogate for the MCMC distance-to-frontier (dtf).
 
-Stage 6 (train): learn a graph-level regressor  G(tract) -> dtf  from the 1000
-MCMC-labelled tracts (data/outputs/sampler_spec/summary.json), so the expensive
-RJ-MCMC search (~mins/tract) is replaced by a forward pass (~ms/tract).
+Stage 6 (train): graph-level regressor  G(tract) -> dtf  fit on the
+MCMC-labelled tracts (data/outputs/sampler_spec/summary.json).
+Stage 7 (predict): score every extracted tract (data/graphs/*.graphml)
+-> data/outputs/gnn_dtf_predictions.parquet.
 
-Stage 7 (predict): score every extracted tract (data/graphs/*.graphml) with the
-trained surrogate -> data/outputs/gnn_dtf_predictions.parquet, completing the
-~84k national set that full MCMC could never reach (84k x mins = months).
-
-Node features (topology only, so inference needs no precomputed metrics):
-    [degree, is_intersection(deg>=3), is_deadend(deg==1), x_norm, y_norm]
+Node features: [degree, is_intersection(deg>=3), is_deadend(deg==1), x_norm, y_norm]
 Edge features: [length_norm]  (straight-line, per-graph normalized)
-Target: dtf, standardized for training (small, right-skewed: median ~0.011).
-
+Target: dtf, log1p-transformed and standardized for training.
 Model: 3x GraphSAGE + global mean|max pool -> MLP -> scalar.
 
 Usage:
     python 07_gnn_surrogate.py train   [--epochs 300 --hidden 64 --seed 1]
     python 07_gnn_surrogate.py predict [--limit N]
-
-Honest caveat: the 1000 dtf labels come from an under-converged MCMC (R-hat
-median ~1.6), so they are noisy; the surrogate's attainable R^2 is bounded by
-label quality. Report rank correlation alongside R^2.
 """
 from __future__ import annotations
 import argparse, json, time
@@ -47,8 +38,7 @@ RES = ROOT / "results" / "gnn"
 RES.mkdir(parents=True, exist_ok=True)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-# the 6 design-doc UOI metrics, added as graph-level features (dtf is largely a
-# function of how much head-room each metric has vs its recommended bound)
+# the 6 spec UOI metrics, added as graph-level features
 METRICS = ["link_node_ratio", "connected_node_ratio", "intersection_density",
            "median_block_length_ft", "walking_circuity", "pedshed_reach"]
 N_GFEAT = len(METRICS)
@@ -66,8 +56,8 @@ def load_metric_features() -> dict:
 # ----------------------------------------------------------- graph -> Data
 def graph_to_data(geoid: str, gfeat: np.ndarray | None = None,
                   y: float | None = None) -> Data | None:
-    """Build a PyG Data from a tract graphml. Uses nx.read_graphml directly
-    (much faster than osmnx's typed loader — matters for the 84k inference)."""
+    """Build a PyG Data from a tract graphml (nx.read_graphml; faster than
+    osmnx's typed loader)."""
     p = GRAPH_DIR / f"{geoid}.graphml"
     if not p.exists():
         return None
@@ -222,7 +212,7 @@ def train(args):
             print(f"  early stop @ep{ep}", flush=True); break
 
     model.load_state_dict(best_state)
-    # report on the held-out test set, in ORIGINAL dtf units
+    # held-out test set, in original dtf units
     Pte, Tte = evaluate(tel)
     Pd, Td = np.expm1(Pte * y_std + y_mean), np.expm1(Tte * y_std + y_mean)
     print(f"\nTEST  R2(dtf)={r2(Pd,Td):.3f}  R2(log)={r2(Pte,Tte):.3f}  "
@@ -264,10 +254,8 @@ def predict(args):
 
     rows, t0 = [], time.time()
 
-    # the surrogate is trained on the combined 1800 sample (top-1000 elite +
-    # 800 stratified national), so it is nationally valid; we still flag tracts
-    # far outside that distribution (max |standardized global feature| > OOD_Z)
-    # and clamp to the natural dtf range [0,1] (relative hypervolume shortfall).
+    # flag tracts with max |standardized global feature| > OOD_Z;
+    # clamp predictions to the natural dtf range [0, 1]
     OOD_Z, DTF_CAP = 4.0, 1.0
 
     def infer(data_list, gids):

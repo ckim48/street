@@ -1,17 +1,10 @@
-"""Stage 3: typology stratification, Pareto frontier, and the deep-analysis sample.
+"""Stage 3: typology stratification, UOI Pareto frontier, stratified sample.
 
-1. Cluster tracts on morphology features (orientation entropy, dead-end
-   fraction, circuity, intersection density) with KMeans (k=4) and label the
-   clusters gridded / cul_de_sac / organic / hybrid by their feature profiles.
-2. Flag the UOI Pareto frontier: tracts not dominated on all four UOI
-   dimensions simultaneously (the document's "report as a frontier, don't
-   collapse the components").
-3. Draw a stratified sample of N tracts, allocated proportionally to stratum
-   size (>=1 per stratum), for the RJ-MCMC deep-analysis stage.
+KMeans (k=4) on morphology features, clusters labeled gridded / cul_de_sac /
+organic / hybrid; flags tracts non-dominated on the four UOI dimensions; draws
+a proportional stratified sample (>=1 per stratum) for the deep-analysis stage.
 
-Usage:
-    python 03_stratified_sample.py --n 1000          # full-scale target
-    python 03_stratified_sample.py --n 50            # pilot-scale
+Usage: python 03_stratified_sample.py --n 1000
 """
 from __future__ import annotations
 

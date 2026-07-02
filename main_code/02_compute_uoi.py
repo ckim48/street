@@ -1,24 +1,11 @@
-"""Stage 2: compute the Urban Optionality Index (UOI) for each tract graph.
+"""Stage 2: Urban Optionality Index (UOI) metrics per tract graph.
 
-Four UOI dimensions, all oriented so that HIGHER = BETTER:
-  connectivity   link-node ratio (edges / nodes) of the undirected graph
-  efficiency     1 / average fractional circuity
-                 (circuity = edge length / straight-line endpoint distance,
-                  length-weighted over all non-self-loop edges)
-  accessibility  mean "opportunity reach": nodes reachable within an 800 m
-                 network walk, averaged over (up to MAX_SOURCES sampled) nodes.
-                 Proxy for opportunity access until LODES jobs are plugged in.
-  equity         1 - Gini coefficient of the per-node reach distribution
-                 (how evenly accessibility is distributed within the tract)
+Dimensions (higher = better): connectivity = link-node ratio; efficiency =
+1 / length-weighted circuity; accessibility = mean 800 m network reach;
+equity = 1 - Gini of per-node reach. Also emits morphology features for
+Stage 3. Resumable: GEOIDs already in uoi_metrics.parquet are skipped.
 
-Also computes morphology features used by Stage 3 for typology stratification:
-  orientation_entropy, dead_end_frac, intersection_density, circuity_avg
-
-Usage:
-    python 02_compute_uoi.py                # process every graph in data/graphs
-    python 02_compute_uoi.py --limit 20     # smoke test
-
-Resumable: GEOIDs already present in data/outputs/uoi_metrics.parquet are skipped.
+Usage: python 02_compute_uoi.py [--limit 20]
 """
 from __future__ import annotations
 
@@ -35,7 +22,7 @@ import pandas as pd
 from uoi_common import DATA, GRAPH_DIR, OUT_DIR, gini
 
 REACH_CUTOFF_M = 800     # walking distance for opportunity reach
-MAX_SOURCES = 500        # cap Dijkstra sources per tract for tractability
+MAX_SOURCES = 500        # cap on Dijkstra sources per tract
 MIN_NODES = 5            # tracts below this are flagged, not scored
 
 OUT_PARQUET = OUT_DIR / "uoi_metrics.parquet"

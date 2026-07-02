@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Detached, resumable driver for the Stage-5 spec MCMC optimal-network search
-# over the top-1000 UOI tracts. Resumes (skips tracts already in summary.json).
+# Driver for the Stage-5 spec MCMC optimal-network search over the top-1000
+# UOI tracts. Resumable (skips tracts already in summary.json).
 #
 #   ./run_mcmc_spec.sh [TOP] [ITERS] [WEIGHTS] [REPLICAS] [TEMPS] [PROCS]
-# defaults below = the "balanced" config (~13h for the full top-1000 on 24 procs)
+# defaults: ~13h for the full top-1000 on 24 procs
 set -euo pipefail
 cd "$(dirname "$0")"
 

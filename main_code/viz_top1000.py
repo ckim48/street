@@ -1,21 +1,9 @@
-"""Top-1000 UOI tracts: build a composite Urban Optionality Index from the 6
-spec metrics, rank all scored tracts, and emit the top-1000 data + figures.
+"""Composite UOI score and top-1000 ranking from the 6 spec metrics.
 
-Composite score (transparent, outlier-robust): each of the 6 design-doc metrics
-is converted to a national PERCENTILE rank in [0,1] with the doc's direction
-(block-length and circuity are "lower is better" -> inverted). UOI_score = mean
-of the 6 percentiles. Tracts are ranked by UOI_score; ties broken by n_ok (how
-many of the 6 recommended bounds the tract meets).
+UOI_score = mean of national percentile ranks of the 6 metrics (block length
+and circuity inverted); ties broken by n_ok. Writes ranked tables and figures
+to results/top1000/.
 
-Inputs : data/outputs/uoi_spec_metrics.csv, data/tracts_{ST}.gpkg, data/graphs/*
-Outputs: results/top1000/
-    top1000_uoi.csv / .parquet          ranked top-1000 table
-    uoi_scores_all.csv                  every scored tract + score + rank
-    fig_score_distribution.png          national UOI_score hist, top-1000 cutoff
-    fig_metric_correlation.png          6-metric Pearson heatmap
-    fig_top1000_by_state.png            state composition of the top 1000
-    fig_metric_profile.png              top-1000 vs national metric profile
-    fig_top24_networks.png              actual street networks of the top 24
 Usage: python viz_top1000.py [--n 1000]
 """
 from __future__ import annotations
@@ -43,7 +31,7 @@ OK_FLAGS = ["lnr_ok", "cnr_ok", "inter_density_ok", "block_ok", "circuity_ok"]
 LABEL = {"link_node_ratio": "link-node ratio", "connected_node_ratio": "connected-node ratio",
          "intersection_density": "intersection density", "median_block_length_ft": "median block length (ft)",
          "walking_circuity": "walking circuity", "pedshed_reach": "pedshed reach"}
-STATE_NAME = {  # FIPS2 -> USPS, just the ones likely to appear
+STATE_NAME = {  # FIPS2 -> USPS
     "06": "CA", "36": "NY", "11": "DC", "42": "PA", "12": "FL", "25": "MA", "17": "IL",
     "24": "MD", "34": "NJ", "26": "MI", "53": "WA", "04": "AZ", "08": "CO", "39": "OH",
     "13": "GA", "37": "NC", "51": "VA", "72": "PR", "18": "IN", "29": "MO", "27": "MN",
@@ -144,8 +132,7 @@ def fig_metric_profile(df, top):
 
 
 def fig_networks(sub, fname, title):
-    """Render the street networks of the tracts in `sub` (a slice of the ranked
-    table) as a 6-wide grid."""
+    """Street networks of the tracts in `sub` as a 6-wide grid."""
     n = len(sub)
     cols, rows = 6, (n + 5) // 6
     fig, axes = plt.subplots(rows, cols, figsize=(cols * 2.7, rows * 2.7),

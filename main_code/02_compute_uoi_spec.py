@@ -1,13 +1,9 @@
-"""Stage 2 (spec): UOI metrics exactly per the design-doc 'UOI Index' table.
+"""Stage 2 (spec): six UOI metrics on the projected, undirected tract graph.
 
-Six metrics (all on the projected, undirected tract graph; bounds from the doc):
-  1 link_node_ratio        m/n                                   (Higher, rec>=1.4)
-  2 connected_node_ratio   intersections/(intersections+deadends)(Higher, rec>=0.7)
-  3 intersection_density   intersections / mile^2 (tract ALAND)  (Higher, rec>140)
-  4 median_block_length_ft median street-segment length, feet    (Lower,  rec<=600)
-  5 walking_circuity       mean over OD node pairs of net/straight(Lower, rec1.2-1.7)
-  6 pedshed_reach          reachable street length within 400 m  (Higher)
-                           per h3 lattice point / circle area (pi*400^2)
+Metrics: link_node_ratio, connected_node_ratio, intersection_density
+(per mile^2 of ALAND), median_block_length_ft, walking_circuity (mean
+network/straight over OD pairs), pedshed_reach (street length within 400 m
+per h3 lattice point / disk area). Recommended-bounds flags included.
 
 Usage: python 02_compute_uoi_spec.py [--limit N] [--states 01,02]
 Resumable: GEOIDs already in data/outputs/uoi_spec_metrics.parquet are skipped.
@@ -103,7 +99,7 @@ def tract_metrics(geoid, aland_m2, geom, rng):
     row["pedshed_reach"] = float(np.mean(vals)) if vals else np.nan
     row["n_lattice"] = len(pts)
 
-    # bounds flags (per doc)
+    # recommended-bounds flags
     row["lnr_ok"] = row["link_node_ratio"] >= 1.4
     row["cnr_ok"] = (row["connected_node_ratio"] >= 0.7
                      if row["connected_node_ratio"] == row["connected_node_ratio"] else False)

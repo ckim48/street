@@ -5,8 +5,7 @@ Reads data/outputs/tract_panel.parquet and writes to results/external_correlates
   corr_matrix_spearman.csv      Spearman rho: UOI measures x outcomes (+ pairwise n)
   fig_corr_heatmap.png          the same matrix as an annotated heatmap
   fig_scatter_uoi_vs_outcomes.png   UOI_score vs each outcome (hexbin + trend + rho)
-Spearman (rank) is used throughout: the variables are heavily skewed and the
-relationships are monotonic-but-nonlinear, so Pearson would be misleading.
+Spearman rank correlations throughout (variables are skewed / monotone-nonlinear).
 """
 from pathlib import Path
 import numpy as np

@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Full-U.S. UOI run via Geofabrik .pbf: Stage 1 (per-state pbf extraction with
-# simplify + fast truncation) then Stage 2 (UOI). Sequential by state,
-# resumable (done tracts skipped, cached .pbf reused), retries each state 2x.
-# Designed to run detached via nohup for ~1-2 days.
+# Full-U.S. UOI run via Geofabrik .pbf: Stage 1 (per-state extraction) then
+# Stage 2 (UOI). Sequential by state, resumable (done tracts skipped, cached
+# .pbf reused), 2 attempts per state. Run detached via nohup.
 set -u
 source ~/anaconda3/etc/profile.d/conda.sh
 conda activate street

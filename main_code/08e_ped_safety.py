@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
-"""Stage 8e: pedestrian-safety deep dive.
+"""Stage 8e: pedestrian-safety follow-up on the adjusted UOI effect from 08d.
 
-The adjusted regression (08d) left ONE concerning result: net of density,
-income, race and state, higher UOI still predicts MORE pedestrian fatalities
-per capita (beta +0.21). This script asks why:
-
-  (1) EXPOSURE test - add ACS walk-to-work share as a control. If the UOI
-      effect collapses, the deaths are "more people walking", not deadly design.
-  (2) COMPONENT decomposition - which of the 6 UOI metrics carries the risk
-      (adjusted, same controls).
-  (3) MECHANISM - re-read FARS, join pedestrian-fatal crashes to tracts, and
-      profile them by tract UOI quintile: road functional class, urban/rural,
-      intersection vs mid-block.
+  (1) exposure test: refit 08d ped model with ACS walk-to-work share added
+      to the controls
+  (2) component decomposition: adjusted effect of each of the 6 UOI metrics
+      on per-capita ped fatality rate (same controls)
+  (3) FARS crash profile by tract UOI quintile: road functional class,
+      urban/rural, intersection vs mid-block
 
 Outputs (results/external_correlates/):
   ped_exposure_test.csv, ped_component_effects.csv, ped_fars_profile.csv,

@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
-"""Stage 8d: does UOI have an INDEPENDENT association with each outcome, or is
-the bivariate correlation just a density / income / race confound?
+"""Stage 8d: adjusted UOI-outcome regressions.
 
-For every outcome Y we fit a standardized OLS:
+Per outcome Y, standardized OLS:
     Y ~ UOI_score + log10(pop_density) + log10(median_income) + pct_white
         + state fixed effects
-and report the standardized coefficient on UOI_score (the "pure" network
-association net of the urban-density, income, race and regional confounders),
-with a t-test, beside the raw bivariate correlation. statsmodels isn't in the
-env, so OLS + analytic SEs are done directly with numpy.
+Reports the standardized UOI coefficient (t, p) beside the raw bivariate
+Spearman. OLS with analytic SEs in numpy.
 
 Outputs (results/external_correlates/):
   regression_uoi_adjusted.csv   raw r vs adjusted beta_UOI (+ t, p, n) per outcome
-  fig_raw_vs_adjusted.png       raw vs density/income/race-adjusted UOI effect
+  fig_raw_vs_adjusted.png       raw vs adjusted UOI effect
 """
 from pathlib import Path
 import numpy as np

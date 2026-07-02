@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Stage 8b (ACS add-on): fetch race + educational attainment per tract from the
 Census ACS5 API and merge into data/outputs/tract_panel.parquet. Also adds a
-POPULATION-normalized pedestrian-fatality rate (removes the per-area density
-confound in the FARS metric).
+population-normalized pedestrian-fatality rate (per 100k residents per yr).
 
 Usage:
     python 08b_acs.py --key YOUR_CENSUS_API_KEY [--year 2022]

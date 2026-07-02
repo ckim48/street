@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage 8a: fetch external socioeconomic datasets (the key-free ones).
+# Stage 8a: fetch external socioeconomic datasets (no API key needed).
 # Saves into data/external/. Resumable: skips files already present.
 set -u
 cd "$(dirname "$0")"
@@ -22,7 +22,7 @@ get "https://opportunityinsights.org/wp-content/uploads/2018/10/tract_covariates
 # 2) Eviction Lab (tract, 2000-2018)
 get "https://eviction-lab-data-downloads.s3.amazonaws.com/data-for-analysis/tract_proprietary_valid_2000_2018_y2024m12.csv" "$EXT/evictionlab_tract_2000_2018.csv"
 
-# 3) FARS — pool several years (pedestrian fatalities are rare per tract)
+# 3) FARS 2017-2021 (pooled; per-tract counts are sparse)
 for Y in 2017 2018 2019 2020 2021; do
   get "https://static.nhtsa.gov/nhtsa/downloads/FARS/${Y}/National/FARS${Y}NationalCSV.zip" "$EXT/fars/FARS${Y}.zip"
 done

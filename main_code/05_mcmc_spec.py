@@ -1,45 +1,32 @@
 """Stage 5: Reversible-Jump MCMC (parallel-tempered) optimal-network search
-that targets the design-doc *6-metric* UOI Index (the "UOI Index" table), run
-over the top-1000 UOI tracts.
+targeting the 6-metric UOI Index, run over the top-1000 UOI tracts.
 
-This is the spec counterpart of 04_sampler.py. The RJ-MCMC machinery (planar
-moves, Hastings ratios, feasibility, tempering) is REUSED verbatim from
-04_sampler.py; only the evaluator and the energy change so that the search is
-driven by the six design-doc metrics + their recommended bounds/directions:
+RJ-MCMC machinery (moves, Hastings ratios, feasibility, tempering) is imported
+from 04_sampler.py; only the evaluator and energy differ. Metrics:
 
-  1 link_node_ratio        m/n                                    Higher (rec >=1.4)
-  2 connected_node_ratio   deg>=3 / (deg>=3 + deg==1)             Higher (rec >=0.7)
-  3 intersection_density   (deg>=3) / mile^2  (tract ALAND)       Higher (rec >140)
-  4 median_block_length_ft median straight edge length, feet      Lower  (rec <=600)
-  5 walking_circuity       mean net/straight over anchor pairs    Band   (1.2-1.7)
-  6 pedshed_reach          reachable street length <=400 m /      Higher
+  1 link_node_ratio        m/n                                    higher (rec >=1.4)
+  2 connected_node_ratio   deg>=3 / (deg>=3 + deg==1)             higher (rec >=0.7)
+  3 intersection_density   (deg>=3) / mile^2  (tract ALAND)       higher (rec >140)
+  4 median_block_length_ft median straight edge length, feet      lower  (rec <=600)
+  5 walking_circuity       mean net/straight over anchor pairs    band   (1.2-1.7)
+  6 pedshed_reach          reachable street length <=400 m /      higher
                            disk area, averaged over anchors
 
-FAST surrogate (the only way to afford millions of evaluations):
-  - metrics 1-4 are exact O(n)/O(m) on the candidate simple graph;
-  - metrics 5-6 share ONE multi-source Dijkstra from a fixed set of `anchors`
-    (coords snapped to the nearest current node), so circuity uses anchor-pair
-    network/straight distance and pedshed uses the per-anchor reachable street
-    length within 400 m. (Stage-2's full h3 lattice / 500-OD version is the
-    ground truth; this is its cheap MCMC-time proxy, re-scored identically for
-    the real network so the comparison stays apples-to-apples.)
+Metrics 1-4 are exact on the candidate simple graph; 5-6 share one
+multi-source Dijkstra from fixed anchor coordinates snapped to the nearest
+current node. The real network is re-scored with the same evaluator.
 
 Energy:  E(G) = sum_i w_i * tanh( x_i / TAU ),  w ~ Dirichlet(1^6) per chain.
-  x_i is a direction-aware, scale-free log-improvement vs. the real network:
+  x_i is a direction-aware log-improvement vs. the real network:
   higher-better dims -> log(v/v_real); block -> log(v_real/v); circuity ->
-  reduction of the band-violation log-penalty. tanh saturates each dim so no
-  single metric runs away — the optimum is "lift every metric toward its
-  recommended bound", i.e. exactly the image's criteria.
+  reduction of the band-violation log-penalty.
 
 Outputs (per tract, under data/outputs/sampler_spec/):
-  {geoid}_w{w}_r{rep}.pkl   chain payload (best counterfactual G+pos, real G,
-                            posterior improvement samples, traces, diagnostics)
+  {geoid}_w{w}_r{rep}.pkl   chain payload
   summary.json              distance-to-frontier, R-hat, accept/swap, best E
 
 Usage:
-  python 05_mcmc_spec.py --geoids 36061007300 36061006700 \
-      --iters 4000 --temps 4 --weights 2 --replicas 2 --procs 6
-  python 05_mcmc_spec.py --top 1000 --iters 6000        # drive the whole top-N
+  python 05_mcmc_spec.py --geoids <GEOID...> --iters 4000    (or --top 1000)
 """
 from __future__ import annotations
 
@@ -89,11 +76,10 @@ METRIC_NAMES = ["link_node_ratio", "connected_node_ratio", "intersection_density
 
 # ---------------------------------------------------------------- evaluator
 class SpecEvaluator:
-    """Fast surrogate for the six design-doc metrics on a candidate graph.
+    """Six spec metrics on a candidate graph.
 
-    `area_mile2` (tract ALAND) is fixed; `anchors` are fixed coordinates snapped
-    to the nearest current node at each call (so circuity/pedshed are stable
-    under node shifts)."""
+    `area_mile2` (tract ALAND) is fixed; `anchors` are fixed coordinates
+    snapped to the nearest current node at each call."""
 
     def __init__(self, anchor_coords: np.ndarray, area_mile2: float):
         self.anchors = anchor_coords          # (k, 2)
@@ -271,20 +257,13 @@ def pareto_mask(v: np.ndarray) -> np.ndarray:
 
 
 def hypervolume_shortfall(front, real, rng, n_mc=120_000):
-    """Relative hypervolume shortfall of the real network vs the achievable
-    frontier, in the 6-D improvement space.
+    """Relative hypervolume shortfall of the real network vs the frontier,
+    in the 6-D improvement space (MC estimate).
 
-    Every dimension is a tanh-saturated, direction-aware improvement over the
-    real network, so improvements live in (-1, 1) and the real network is the
-    origin. The reference point (box floor) is the FIXED nadir -1 in every dim
-    (the tanh lower bound), not a cloud-dependent value — otherwise, for the
-    elite top tracts (already best-in-class on link-node/connected-node/
-    density/block, so the posterior never beats them there), the real point
-    would sit on the box floor and the shortfall would degenerate to 1.0.
-
-    `front` must be the Pareto front of {posterior cloud} U {real}; the real
-    network is included so a fully Pareto-optimal real gives dtf = 0 and a real
-    that the search can expand beyond gives dtf in (0, 1)."""
+    Dimensions are tanh-saturated improvements in (-1, 1); the real network is
+    the origin. Reference point = the tanh lower bound -1 in every dim.
+    `front` is the Pareto front of {posterior cloud} U {real}, so dtf = 0 when
+    the real network is Pareto-optimal."""
     ref = np.full(real.shape[0], -1.0)
     hi = np.maximum(front.max(axis=0), real) + 1e-9
     pts = rng.uniform(ref, hi, size=(n_mc, real.shape[0]))
@@ -307,7 +286,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--geoids", nargs="+")
     ap.add_argument("--top", type=int, default=1000,
-                    help="if --geoids absent, drive the first N top-1000 tracts")
+                    help="first N top-1000 tracts when --geoids absent")
     ap.add_argument("--iters", type=int, default=6000)
     ap.add_argument("--temps", type=int, default=4)
     ap.add_argument("--weights", type=int, default=2)
@@ -317,9 +296,7 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--procs", type=int, default=6)
     ap.add_argument("--outdir", type=str, default=None,
-                    help="override output dir (default data/outputs/sampler_spec); "
-                         "use a separate dir for pilot runs so the main results "
-                         "are not overwritten")
+                    help="output dir (default data/outputs/sampler_spec)")
     ap.add_argument("--resume", action="store_true",
                     help="skip tracts already in summary.json")
     args = ap.parse_args()

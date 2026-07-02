@@ -1,25 +1,20 @@
-"""Stage 5b: benchmark-calibrated SYNTHESIS of optimal *virtual* street networks
-(design-doc Part 3c-i, "high-UOI modes of unconstrained networks — entirely new").
+"""Stage 5b: synthesis of optimal virtual street networks, built from scratch
+in a blank square domain and optimized toward the top-1000 metric levels.
 
-Unlike 05_mcmc_spec.py (counterfactuals seeded from, and bounded by, a real
-tract), this builds networks FROM SCRATCH in a blank square domain — tied to no
-city — and optimizes them toward the UOI levels the top-1000 actually achieve.
-
-Difference from 05: there is no real reference network, so the energy is an
-ABSOLUTE "reach-or-better" goodness toward a target metric vector (the top-1000
-medians), with the circuity band [1.2,1.7] from the design doc:
+No real reference network here, so the energy is an absolute reach-or-better
+goodness toward a target metric vector (top-1000 medians), with the circuity
+band [1.2, 1.7]:
     higher-better dims : reward rising up to the target, then plateau
     block length       : reward falling down to the target, then plateau
     circuity           : reward staying inside the band
     E = sum_i w_i * r_i,  r_i in (-1, 0],  w ~ Dirichlet(1^6)
-Maximum E = 0 = "every metric meets the top-1000 benchmark".
+E = 0 means every metric meets the top-1000 benchmark.
 
-Three seed archetypes give diverse modes: gridded / organic (Delaunay) / hybrid.
-The RJ-MCMC move + tempering machinery is reused from 04_sampler.py; the metric
-evaluator is reused from 05_mcmc_spec.py.
+Seed archetypes: grid / organic (Delaunay) / hybrid. Moves + tempering come
+from 04_sampler.py; the metric evaluator from 05_mcmc_spec.py.
 
-Output (results/synth/): the best virtual network per (seed x chain) as a figure
-grid + a CSV of their 6 metrics vs the top-1000 target.
+Output (results/synth/): figure grid of best networks per (seed x chain) + CSV
+of their 6 metrics vs the target.
 
 Usage: python 06_synthesize.py [--iters 5000 --side 700 --grid 13 --chains 3]
 """
