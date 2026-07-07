@@ -23,4 +23,5 @@ python 02_decade_graphs.py   --cities "${CITIES[@]}"
 python 03_compute_oi.py      --cities "${CITIES[@]}" --barriers street --max-seg 300
 python 04_rd_estimate.py     --cities "${CITIES[@]}" --bandwidth 300
 python 05_figures.py         --cities "${CITIES[@]}"
+python 06_mechanism_validation.py     # mechanism set + 1940-vs-2020 same-place panels
 echo "=== Tier 1 done -> results/tier1/ ==="
