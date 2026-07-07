@@ -178,7 +178,7 @@ def _area_mile2_for(geoid: str) -> float:
 
 
 def run_chain(job):
-    (geoid, w, w_idx, replica, iters, n_temps, anchors_k, sharp, seed) = job
+    (geoid, w, w_idx, replica, iters, n_temps, anchors_k, sharp, beta_min, seed) = job
     rng = np.random.default_rng(seed)
     G0, pos0, poly_sh = s04.load_state(geoid)
     poly = Poly(poly_sh)
@@ -192,7 +192,7 @@ def run_chain(job):
     def energy(uoi):
         return float(np.dot(w, improvement_vector(uoi, u_real)))
 
-    betas = np.geomspace(1.0, 0.18, n_temps)
+    betas = np.geomspace(1.0, beta_min, n_temps)
     e0 = energy(u_real)
     states = [{"G": G0.copy(), "pos": dict(pos0), "E": e0, "uoi": u_real.copy()}
               for _ in range(n_temps)]
@@ -308,17 +308,36 @@ def main():
     ap.add_argument("--geoids", nargs="+")
     ap.add_argument("--top", type=int, default=1000,
                     help="if --geoids absent, drive the first N top-1000 tracts")
-    ap.add_argument("--iters", type=int, default=6000)
-    ap.add_argument("--temps", type=int, default=4)
+    # defaults below are the STRENGTHENED convergence config: the mixing-lever
+    # pilot (fig_pilot_rhat_compare.png) showed softening the energy (sharp
+    # 60->25), a finer/warmer tempering ladder (temps 4->8, beta floor 0.18->
+    # 0.12) and more replica chains (2->4) cut the worst-tract median split-R̂
+    # from 4.28 to 1.79; longer chains push it the rest of the way to <1.1.
+    ap.add_argument("--iters", type=int, default=8000)
+    ap.add_argument("--temps", type=int, default=8)
     ap.add_argument("--weights", type=int, default=2)
-    ap.add_argument("--replicas", type=int, default=2)
+    ap.add_argument("--replicas", type=int, default=4)
     ap.add_argument("--anchors", type=int, default=12)
-    ap.add_argument("--sharp", type=float, default=60.0)
+    ap.add_argument("--sharp", type=float, default=25.0)
+    ap.add_argument("--beta-min", type=float, default=0.12, dest="beta_min",
+                    help="hottest-chain inverse-temperature floor; lower = the "
+                         "top replica explores more freely and swaps carry that "
+                         "mode-hopping down to the cold chain (better mixing)")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--procs", type=int, default=6)
+    ap.add_argument("--outdir", type=str, default=None,
+                    help="override output dir (default data/outputs/sampler_spec); "
+                         "use a separate dir for pilot runs so the main results "
+                         "are not overwritten")
     ap.add_argument("--resume", action="store_true",
                     help="skip tracts already in summary.json")
     args = ap.parse_args()
+
+    if args.outdir:
+        global SAMPLER_DIR
+        SAMPLER_DIR = Path(args.outdir)
+        SAMPLER_DIR.mkdir(parents=True, exist_ok=True)
+        print(f"output dir -> {SAMPLER_DIR}", flush=True)
 
     geoids = resolve_geoids(args)
     summary = {}
@@ -335,10 +354,12 @@ def main():
             w = rng.dirichlet(np.ones(6))
             for rep in range(args.replicas):
                 jobs.append((geoid, w, w_idx, rep, args.iters, args.temps,
-                             args.anchors, args.sharp, int(rng.integers(1 << 31))))
+                             args.anchors, args.sharp, args.beta_min,
+                             int(rng.integers(1 << 31))))
     print(f"{len(jobs)} chains "
           f"({len(geoids)}x{args.weights}w x{args.replicas}r), "
-          f"{args.temps} temps x {args.iters} iters", flush=True)
+          f"{args.temps} temps x {args.iters} iters, "
+          f"sharp={args.sharp} beta_min={args.beta_min}", flush=True)
 
     with ProcessPoolExecutor(max_workers=args.procs) as ex:
         results = list(ex.map(run_chain, jobs))
