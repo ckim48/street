@@ -15,7 +15,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 from shapely.ops import unary_union
 
-from pf_common import BND_DIR
+from pf_common import BND_DIR, CITIES, PF
 
 
 # ------------------------------------------------------- planar geometry ----
@@ -118,6 +118,23 @@ def build_modern_graph(slug):
     G = G.subgraph(comp).copy()
     pos = {n: (G.nodes[n]["x"], G.nodes[n]["y"]) for n in G.nodes}
     return G, pos, dict(omega=omega, barrier=barrier, highway=hwy)
+
+
+def load_water_exclusion(slug, omega):
+    """Restricted-land polygon for Regime 3: significant open water (TIGER
+    AREAWATER) inside Omega -- no new street may be built across it.
+    Returns a shapely geometry, or None if there's no water in the study area."""
+    cfg = CITIES[slug]
+    p = PF / "tiger_excl" / f"tl_2025_{cfg['county']}_areawater.zip"
+    if not p.exists():
+        return None
+    w = gpd.read_file(p).to_crs(cfg["utm"])
+    w = gpd.clip(w, omega)
+    w = w[~w.geometry.is_empty & w.geometry.notna()]
+    w = w[w.geometry.area > 2000.0]              # drop tiny slivers (<2000 m^2)
+    if len(w) == 0:
+        return None
+    return unary_union(w.geometry.values)
 
 
 def label_sides(pos, hwy):

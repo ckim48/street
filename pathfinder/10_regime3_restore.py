@@ -41,7 +41,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from pf_common import CITIES, PF, RES
-from pf_graph import build_modern_graph, dist, edge_crosses, label_sides
+from pf_graph import (build_modern_graph, dist, edge_crosses, label_sides,
+                      load_water_exclusion)
 
 warnings.filterwarnings("ignore")
 
@@ -84,14 +85,16 @@ def barrier_anchors(pos, side, hwy):
     return list(dict.fromkeys(A)), list(dict.fromkeys(B))
 
 
-def crossing_candidates(G, pos, side, omega):
+def crossing_candidates(G, pos, side, omega, pexcl=None):
     """Feasible NEW edges that cross the barrier: opposite-side node pairs within
-    R_ADD, not already edges, whose midpoint lies inside Omega."""
+    R_ADD, not already edges, midpoint inside Omega, and NOT crossing a
+    restricted-land polygon `pexcl` (water/parks). Returns (list, n_excluded)."""
+    from shapely.geometry import Point
     ids = list(pos)
     xy = np.array([pos[n] for n in ids])
     tree = cKDTree(xy)
     pin = prep(omega)
-    seen, out = set(), []
+    seen, out, n_excl = set(), [], 0
     for i, u in enumerate(ids):
         for j in tree.query_ball_point(xy[i], R_ADD):
             v = ids[j]
@@ -102,11 +105,13 @@ def crossing_candidates(G, pos, side, omega):
                 continue
             seen.add(key)
             mx, my = (pos[u][0] + pos[v][0]) / 2, (pos[u][1] + pos[v][1]) / 2
-            from shapely.geometry import Point
             if not pin.contains(Point(mx, my)):
                 continue
+            if pexcl is not None and pexcl.intersects(LineString([pos[u], pos[v]])):
+                n_excl += 1
+                continue
             out.append((key[0], key[1], dist(pos[u], pos[v])))
-    return out
+    return out, n_excl
 
 
 def reconnect_dist(G, A, B):
@@ -126,9 +131,11 @@ def restore_city(slug, iters, unit_per_m, seed, excl=None):
     side, _, _ = label_sides(pos, lay["highway"])
     omega = lay["omega"]
     budget = cfg["project_cost"] or 150_000_000
-    A, B = barrier_anchors(pos, side, lay["highway"])
-    cands = crossing_candidates(G, pos, side, omega)
+    if excl is None:
+        excl = load_water_exclusion(slug, omega)      # restricted land (water)
     pexcl = prep(excl) if excl is not None else None
+    A, B = barrier_anchors(pos, side, lay["highway"])
+    cands, n_excl = crossing_candidates(G, pos, side, omega, pexcl)
 
     D0 = reconnect_dist(G, A, B)
     Gc = G.copy()
@@ -186,14 +193,14 @@ def restore_city(slug, iters, unit_per_m, seed, excl=None):
     row = dict(
         slug=slug, city=cfg["city"], neighborhood=cfg["neighborhood"],
         highway=cfg["highway"], budget_usd=budget,
-        n_candidates=len(cands), n_added=len(added_b),
+        n_candidates=len(cands), n_excl_water=n_excl, n_added=len(added_b),
         added_len_km=round(sum(l for l, _ in added_b.values()) / 1000, 3),
         spend_usd=round(spend_b), pct_budget=round(100 * spend_b / budget, 2),
         reconnect_gain=round(gain_b, 4),
         D0_m=round(D0, 1), unit_per_mile=round(unit_per_m * MILE_M),
     )
     return row, dict(slug=slug, G=G, pos=pos, lay=lay, side=side,
-                     A=A, B=B, added=added_b, row=row)
+                     A=A, B=B, added=added_b, excl=excl, row=row)
 
 
 def draw(art, path):
@@ -201,6 +208,9 @@ def draw(art, path):
     G, pos, lay = art["G"], art["pos"], art["lay"]
     fig, ax = plt.subplots(figsize=(7.5, 7.5))
     gpd.GeoSeries([lay["omega"]]).plot(ax=ax, facecolor="none", edgecolor="#bbb", lw=1)
+    if art.get("excl") is not None:
+        gpd.GeoSeries([art["excl"]]).plot(ax=ax, facecolor="#3498db", alpha=0.4,
+                                          edgecolor="none", zorder=1)
     gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor="#e74c3c", alpha=0.18,
                                          edgecolor="none")
     for u, v in G.edges:
@@ -250,7 +260,8 @@ def main():
         save_added(art)
         print(f"    +{row['n_added']} crossings  {row['added_len_km']}km  "
               f"${row['spend_usd']/1e6:.1f}M ({row['pct_budget']}%)  "
-              f"reconnect +{row['reconnect_gain']*100:.1f}%  (cands={row['n_candidates']})",
+              f"reconnect +{row['reconnect_gain']*100:.1f}%  "
+              f"(cands={row['n_candidates']}, water-excluded={row['n_excl_water']})",
               flush=True)
 
     df = pd.DataFrame(rows)
