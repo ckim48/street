@@ -1,0 +1,6 @@
+slug,city,neighborhood,highway,budget_usd,n_candidates,n_added,added_len_km,spend_usd,pct_budget,reconnect_gain,D0_m,unit_per_mile
+detroit,Detroit,Black Bottom / Paradise Valley,I-375,270000000,390,8,1.551,4818486,1.78,0.1681,888.4,5000000
+syracuse,Syracuse,15th Ward,I-81,2250000000,353,3,0.486,1509660,0.07,0.0126,1892.7,5000000
+new_orleans,New Orleans,Treme / Claiborne,I-10 (Claiborne),95000000,1877,2,0.271,842847,0.89,0.0154,1821.3,5000000
+st_paul,St. Paul,Rondo,I-94,450000000,399,7,0.878,2727602,0.61,0.0596,1643.4,5000000
+miami,Miami,Overtown,I-95 / I-395,150000000,480,8,1.489,4626667,3.08,0.0819,1001.6,5000000
