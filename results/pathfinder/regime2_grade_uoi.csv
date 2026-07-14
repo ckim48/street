@@ -1,0 +1,5 @@
+slug,grade,color,area_km2,alive_km,demolished_km,pct_demolished,n_demolished,pre_intersection_density,pre_link_node_ratio,pre_median_block_m
+detroit,A,green,33.56,187.0,0.0,0.0,0,25.1,1.309,81.1
+detroit,B,blue,75.35,505.8,1.44,0.28,10,31.7,1.338,72.5
+detroit,C,yellow,272.95,1537.7,38.31,2.49,153,26.8,1.348,74.7
+detroit,D,red,151.88,1015.6,84.57,8.33,335,29.0,1.365,83.7
