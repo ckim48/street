@@ -1,2 +1,2 @@
 slug,city,neighborhood,highway,pre_year,n_nodes,n_edges0,n_added,n_removed,len0_km,len_opt_km,D0_m,Dopt_m,access_gain,eff_gain,n_landmarks
-detroit,Detroit,Black Bottom / Paradise Valley,I-375,1958,685,938,18,9,100.396,102.008,2336.7,2302.7,0.0146,0.0148,28
+detroit,Detroit,Black Bottom / Paradise Valley,I-375,1958,685,938,231,231,100.396,107.457,2336.7,2140.9,0.0838,0.0915,28

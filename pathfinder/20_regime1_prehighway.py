@@ -152,8 +152,13 @@ def optimize(slug, iters, n_land, mu, seed):
     J = objective(D, L)
     added, removed = {}, []          # (u,v)->length ; list of (u,v,length)
     cands = add_candidates(G, pos, omega)
-    T0, T1 = 0.06, 0.002
+    # Temperature must match the objective's per-move ΔJ scale (~1e-4 here): the
+    # earlier T0=0.06 made exp(ΔJ/T)≈1 for every move -> a random walk that never
+    # exploits (acceptance pinned ~0.95, seed-unstable optimum).  Scaled ~400x
+    # lower so acceptance decays from ~explore to ~0 (proper anneal / hill-climb).
+    T0, T1 = 2.0e-4, 5.0e-6
     best = dict(J=J, added={}, removed=[], D=D, L=L)
+    trace = []                       # (iter, T, J, best_J, accepted, n_edges)
 
     for it in range(iters):
         T = T0 * (T1 / T0) ** (it / max(iters - 1, 1))
@@ -180,7 +185,9 @@ def optimize(slug, iters, n_land, mu, seed):
         Dn = access_cost(G, land)
         Ln = net_length(G)
         Jn = objective(Dn, Ln)
-        if Jn >= J or rng.random() < np.exp((Jn - J) / max(T, 1e-9)):
+        accepted = (Jn >= J) or (rng.random() < np.exp((Jn - J) / max(T, 1e-9)))
+        trace.append((it, T, Jn, best["J"], int(accepted), G.number_of_edges()))
+        if accepted:
             J, D, L = Jn, Dn, Ln
             k = (move[1], move[2]) if move[1] < move[2] else (move[2], move[1])
             if move[0] == "add":
@@ -223,7 +230,7 @@ def optimize(slug, iters, n_land, mu, seed):
         n_landmarks=len(land),
     )
     art = dict(slug=slug, G0=G0, Gb=Gb, pos=pos, lay=lay, land=land,
-               added=best["added"], removed=best["removed"], row=row)
+               added=best["added"], removed=best["removed"], row=row, trace=trace)
     return row, art
 
 
