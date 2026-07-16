@@ -40,6 +40,7 @@ from shapely.prepared import prep
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+import pf_style as S
 from pf_common import CITIES, PF, RES
 from pf_graph import (build_modern_graph, dist, edge_crosses, label_sides,
                       load_water_exclusion)
@@ -206,27 +207,39 @@ def restore_city(slug, iters, unit_per_m, seed, excl=None):
 def draw(art, path):
     cfg = CITIES[art["slug"]]
     G, pos, lay = art["G"], art["pos"], art["lay"]
-    fig, ax = plt.subplots(figsize=(7.5, 7.5))
-    gpd.GeoSeries([lay["omega"]]).plot(ax=ax, facecolor="none", edgecolor="#bbb", lw=1)
-    if art.get("excl") is not None:
-        gpd.GeoSeries([art["excl"]]).plot(ax=ax, facecolor="#3498db", alpha=0.4,
-                                          edgecolor="none", zorder=1)
-    gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor="#e74c3c", alpha=0.18,
-                                         edgecolor="none")
+    fig, ax = plt.subplots(figsize=(7.5, 7.8))
     for u, v in G.edges:
-        ax.plot(*zip(pos[u], pos[v]), color="#888", lw=0.5, zorder=2)
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["base"], lw=0.6, zorder=2)
+    has_water = art.get("excl") is not None
+    if has_water:
+        gpd.GeoSeries([art["excl"]]).plot(ax=ax, facecolor=S.C["water"], alpha=0.35,
+                                          edgecolor="none", zorder=1)
+    gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor=S.C["barrier"], alpha=0.35,
+                                         edgecolor="none", zorder=1)
+    gpd.GeoSeries([lay["omega"]]).plot(ax=ax, facecolor="none",
+                                       edgecolor=S.C["omega"], lw=1.2, zorder=3)
     for (u, v) in art["added"]:
-        ax.plot(*zip(pos[u], pos[v]), color="#1a9850", lw=2.6, zorder=4)
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["added"], lw=2.8, zorder=4,
+                solid_capstyle="round")
     for n in art["A"]:
-        ax.plot(*pos[n], "o", color="#2166ac", ms=4, zorder=5)
+        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_a"]), zorder=5)
     for n in art["B"]:
-        ax.plot(*pos[n], "o", color="#b2182b", ms=4, zorder=5)
+        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_b"]), zorder=5)
     r = art["row"]
-    ax.set_title(f"{cfg['city']} — {cfg['neighborhood']} · {cfg['highway']}\n"
-                 f"restore {r['n_added']} crossings, {r['added_len_km']}km, "
-                 f"{r['spend_usd']/1e6:.1f}M of {r['budget_usd']/1e6:.0f}M USD "
-                 f"({r['pct_budget']}%) · reconnect +{r['reconnect_gain']*100:.1f}%",
-                 fontsize=9)
+    S.title(ax, f"{cfg['city']} — {cfg['neighborhood']} · {cfg['highway']}\n"
+                f"restore {r['n_added']} crossings, {r['added_len_km']}km, "
+                f"{r['spend_usd']/1e6:.1f}M of {r['budget_usd']/1e6:.0f}M USD "
+                f"({r['pct_budget']}%) · reconnect +{r['reconnect_gain']*100:.1f}%", fontsize=9)
+    entries = [
+        ("line", S.C["added"], "restored crossing (new street)"),
+        ("dot", S.C["side_a"], "barrier anchor · side A"),
+        ("dot", S.C["side_b"], "barrier anchor · side B"),
+        ("band", S.C["barrier"], "highway ROW (barrier)"),
+        ("thin", S.C["base"], "existing street grid"),
+    ]
+    if has_water:
+        entries.insert(1, ("band", S.C["water"], "water (no-build)"))
+    S.legend(ax, entries)
     ax.set_aspect("equal"); ax.set_axis_off()
     fig.tight_layout(); fig.savefig(path, dpi=130); plt.close(fig)
 
@@ -242,6 +255,93 @@ def save_added(art):
             RESTORE_DIR / f"{art['slug']}_added.gpkg", layer="added_streets")
 
 
+# highway severance form (for the summary colour encoding)
+HW_TYPE = {"detroit": "trench", "st_paul": "trench", "miami": "interchange",
+           "new_orleans": "elevated", "syracuse": "elevated"}
+TYPE_COLOR = {"trench": S.ORANGE, "interchange": S.YELLOW, "elevated": S.BLUE}
+
+
+def draw_panel(art, ax):
+    """single restore map into an existing axis (no legend; shared one on grid)."""
+    cfg = CITIES[art["slug"]]
+    G, pos, lay = art["G"], art["pos"], art["lay"]
+    for u, v in G.edges:
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["base"], lw=0.5, zorder=2)
+    if art.get("excl") is not None:
+        gpd.GeoSeries([art["excl"]]).plot(ax=ax, facecolor=S.C["water"], alpha=0.35,
+                                          edgecolor="none", zorder=1)
+    gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor=S.C["barrier"], alpha=0.35,
+                                         edgecolor="none", zorder=1)
+    gpd.GeoSeries([lay["omega"]]).plot(ax=ax, facecolor="none",
+                                       edgecolor=S.C["omega"], lw=1.0, zorder=3)
+    for (u, v) in art["added"]:
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["added"], lw=2.4, zorder=4,
+                solid_capstyle="round")
+    for n in art["A"]:
+        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_a"], ms=5), zorder=5)
+    for n in art["B"]:
+        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_b"], ms=5), zorder=5)
+    r = art["row"]
+    S.title(ax, f"{cfg['city']} · {cfg['highway']}\n"
+                f"+{r['n_added']} crossings · reconnect +{r['reconnect_gain']*100:.1f}%",
+            fontsize=9)
+    ax.set_aspect("equal"); ax.set_axis_off()
+
+
+def draw_all(arts, path):
+    fig, axes = plt.subplots(2, 3, figsize=(16, 11))
+    for i, (ax, art) in enumerate(zip(axes.ravel(), arts)):
+        draw_panel(art, ax)
+        if i == 0:
+            S.legend(ax, [
+                ("line", S.C["added"], "restored crossing"),
+                ("dot", S.C["side_a"], "anchor · side A"),
+                ("dot", S.C["side_b"], "anchor · side B"),
+                ("band", S.C["barrier"], "highway barrier"),
+                ("thin", S.C["base"], "street grid"),
+            ], fontsize=7)
+    for ax in axes.ravel()[len(arts):]:
+        ax.set_axis_off()
+    fig.suptitle("PathFinder Regime-3 — budget-constrained add-only street restoration",
+                 fontsize=13, color=S.INK)
+    fig.tight_layout(); fig.savefig(path, dpi=130); plt.close(fig)
+
+
+def draw_summary(df, path):
+    d = df.sort_values("reconnect_gain", ascending=False).reset_index(drop=True)
+    types = [HW_TYPE[s] for s in d["slug"]]
+    cols = [TYPE_COLOR[t] for t in types]
+    xlab = [f"{c}\n{h}" for c, h in zip(d["city"], d["highway"])]
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(15, 6))
+    x = np.arange(len(d))
+
+    a1.bar(x, d["reconnect_gain"] * 100, color=cols, zorder=3)
+    for i, (v, n) in enumerate(zip(d["reconnect_gain"] * 100, d["n_added"])):
+        a1.text(i, v + 0.15, f"+{n}", ha="center", fontsize=9, color=S.INK2)
+    a1.set_xticks(x); a1.set_xticklabels(xlab, fontsize=8, color=S.INK2)
+    a1.set_ylabel("reconnect gain (%)", color=S.INK2)
+    S.title(a1, "Reconnection benefit by city (colour = highway form)", fontsize=11)
+    a1.legend(handles=[S._handle("fill", TYPE_COLOR[t], t) for t in
+                       ["trench", "interchange", "elevated"]],
+              fontsize=8, frameon=True, edgecolor=S.GRID, labelcolor=S.INK2,
+              title="highway form", title_fontsize=8)
+    for sp in ("top", "right"):
+        a1.spines[sp].set_visible(False)
+
+    a2.bar(x, d["pct_budget"], color=cols, zorder=3)
+    for i, (v, km, sp) in enumerate(zip(d["pct_budget"], d["added_len_km"], d["spend_usd"])):
+        a2.text(i, v + 0.02, f"{km}km\n${sp/1e6:.1f}M", ha="center", fontsize=7.5, color=S.INK2)
+    a2.set_xticks(x); a2.set_xticklabels(xlab, fontsize=8, color=S.INK2)
+    a2.set_ylabel("restoration cost (% of project budget)", color=S.INK2)
+    S.title(a2, "Restoration is a tiny fraction of the budget (teardown dominates)", fontsize=11)
+    for sp in ("top", "right"):
+        a2.spines[sp].set_visible(False)
+
+    fig.suptitle("PathFinder Regime-3 — budget-constrained add-only street restoration "
+                 "(5 severed neighborhoods)", fontsize=13, color=S.INK)
+    fig.tight_layout(); fig.savefig(path, dpi=130); plt.close(fig)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cities", nargs="+", default=list(CITIES))
@@ -251,11 +351,12 @@ def main():
     args = ap.parse_args()
     unit_per_m = args.unit_mile / MILE_M
 
-    rows = []
+    rows, arts = [], []
     for slug in args.cities:
         print(f"[{slug}] optimizing ...", flush=True)
         row, art = restore_city(slug, args.iters, unit_per_m, args.seed)
         rows.append(row)
+        arts.append(art)
         draw(art, RES / f"fig_{slug}_restore.png")
         save_added(art)
         print(f"    +{row['n_added']} crossings  {row['added_len_km']}km  "
@@ -266,6 +367,9 @@ def main():
 
     df = pd.DataFrame(rows)
     df.to_csv(RES / "restore_summary.csv", index=False)
+    if len(arts) > 1:
+        draw_all(arts, RES / "fig_all_restore.png")
+        draw_summary(df, RES / "fig_restore_summary.png")
     print("\n" + df.to_string(index=False), flush=True)
 
 

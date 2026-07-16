@@ -34,6 +34,7 @@ from shapely.ops import unary_union
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+import pf_style as S
 from pf_common import (BND_DIR, CITIES, CITY_SLUGS, HOLC_GPKG, LOCALIZE_R,
                        MODERN_MARGIN, RES, SELECT_BUF, TIGER_ROADS, holc_d_for)
 
@@ -114,24 +115,30 @@ def build_city(slug, holc_all):
                      hwy=hwy_local, modern=modern, anchor=anchor)
 
 
-def _draw(ax, art):
+def _draw(ax, art, show_legend=True):
     cfg = art["cfg"]
     utm = cfg["utm"]
-    gpd.GeoSeries([art["omega"]], crs=utm).plot(ax=ax, facecolor="none",
-                                                edgecolor="#c0392b", linewidth=2.2, zorder=5)
-    if len(art["sel"]):
-        art["sel"].plot(ax=ax, facecolor="#e74c3c", alpha=0.12, edgecolor="#e74c3c",
-                        linewidth=0.5, zorder=1)
     m = art["modern"]
-    m[~m["is_hwy"]].plot(ax=ax, color="#5d8aa8", linewidth=0.45, zorder=2)
-    gpd.GeoSeries([art["barrier"]], crs=utm).plot(ax=ax, facecolor="#7f8c8d",
-                                                  alpha=0.5, edgecolor="none", zorder=3)
-    art["hwy"].plot(ax=ax, color="black", linewidth=2.0, zorder=4)
-    gpd.GeoSeries([art["anchor"]], crs=utm).plot(ax=ax, color="gold", marker="*",
-                                                 markersize=180, edgecolor="k", zorder=6)
-    ax.set_title(f"{cfg['city']} — {cfg['neighborhood']}\n{cfg['highway']} · "
-                 f"Ω {art['omega'].area/1e6:.2f} km² · {len(art['sel'])} HOLC-D",
-                 fontsize=9)
+    m[~m["is_hwy"]].plot(ax=ax, color=S.C["base"], linewidth=0.5, zorder=2)
+    if len(art["sel"]):
+        art["sel"].plot(ax=ax, facecolor=S.C["holc_d"], alpha=0.14,
+                        edgecolor=S.C["holc_d"], linewidth=0.5, zorder=1)
+    gpd.GeoSeries([art["omega"]], crs=utm).plot(ax=ax, facecolor="none",
+                                                edgecolor=S.C["omega"], linewidth=1.6, zorder=5)
+    gpd.GeoSeries([art["barrier"]], crs=utm).plot(ax=ax, facecolor=S.C["barrier"],
+                                                  alpha=0.35, edgecolor="none", zorder=3)
+    art["hwy"].plot(ax=ax, color=S.C["highway"], linewidth=2.0, zorder=4)
+    ax.plot(art["anchor"].x, art["anchor"].y, **S.star(), zorder=6)
+    S.title(ax, f"{cfg['city']} — {cfg['neighborhood']}\n{cfg['highway']} · "
+                f"Ω {art['omega'].area/1e6:.2f} km² · {len(art['sel'])} HOLC-D", fontsize=9)
+    if show_legend:
+        S.legend(ax, [
+            ("fill", S.C["holc_d"], "redlined (HOLC-D)"),
+            ("line", S.C["highway"], "interstate"),
+            ("band", S.C["barrier"], "highway ROW (barrier)"),
+            ("thin", S.C["base"], "street grid"),
+            ("star", S.C["anchor"], "neighborhood center"),
+        ])
     minx, miny, maxx, maxy = art["omega"].bounds
     mgn = 0.05 * max(maxx - minx, maxy - miny) + 150
     ax.set_xlim(minx - mgn, maxx + mgn)
@@ -170,8 +177,8 @@ def main():
     if len(arts) > 1:
         n = len(arts)
         fig, axes = plt.subplots(2, 3, figsize=(16, 11))
-        for ax, art in zip(axes.ravel(), arts):
-            _draw(ax, art)
+        for i, (ax, art) in enumerate(zip(axes.ravel(), arts)):
+            _draw(ax, art, show_legend=(i == 0))
         for ax in axes.ravel()[n:]:
             ax.set_axis_off()
         fig.suptitle("PathFinder — severed-neighborhood study areas (Ω) + highway barrier B",

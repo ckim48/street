@@ -46,6 +46,7 @@ from shapely.prepared import prep
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+import pf_style as S
 from pf_common import CITIES, PF, RES
 from pf_graph import dist, edge_crosses
 from pf_prehist import build_pre_graph
@@ -238,28 +239,38 @@ def optimize(slug, iters, n_land, mu, seed):
 def draw(art, path):
     cfg = CITIES[art["slug"]]
     G0, pos, lay = art["G0"], art["pos"], art["lay"]
-    fig, ax = plt.subplots(figsize=(7.5, 7.5))
-    gpd.GeoSeries([lay["omega"]]).plot(ax=ax, facecolor="none", edgecolor="#bbb", lw=1)
-    gpd.GeoSeries([lay["holc_d"]]).plot(ax=ax, facecolor="#d73027", alpha=0.12,
-                                        edgecolor="#d73027", lw=0.6, zorder=1)
-    # highway footprint for reference (built AFTER this network)
-    gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor="#777", alpha=0.10,
-                                         edgecolor="none", zorder=1)
+    fig, ax = plt.subplots(figsize=(7.5, 7.8))
     for u, v in G0.edges:
-        ax.plot(*zip(pos[u], pos[v]), color="#999", lw=0.6, zorder=2)
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["base"], lw=0.6, zorder=2)
+    gpd.GeoSeries([lay["holc_d"]]).plot(ax=ax, facecolor=S.C["holc_d"], alpha=0.13,
+                                        edgecolor=S.C["holc_d"], lw=0.6, zorder=1)
+    # highway footprint for reference (built AFTER this network)
+    gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor=S.C["barrier"], alpha=0.22,
+                                         edgecolor="none", zorder=1)
+    gpd.GeoSeries([lay["omega"]]).plot(ax=ax, facecolor="none",
+                                       edgecolor=S.C["omega"], lw=1.1, zorder=3)
     for (u, v, w) in art["removed"]:
-        ax.plot(*zip(pos[u], pos[v]), color="#b2182b", lw=1.6, ls=":", zorder=4)
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["removed"], lw=1.8, ls=(0, (3, 2)), zorder=4)
     for (u, v) in art["added"]:
-        ax.plot(*zip(pos[u], pos[v]), color="#1a9850", lw=2.4, zorder=5)
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["added"], lw=2.4, zorder=5,
+                solid_capstyle="round")
     lx = [pos[n][0] for n in art["land"]]
     ly = [pos[n][1] for n in art["land"]]
-    ax.plot(lx, ly, "o", color="#2166ac", ms=4, zorder=6)
+    ax.plot(lx, ly, **S.dot(S.C["landmark"]), zorder=6)
     r = art["row"]
-    ax.set_title(
-        f"{cfg['city']} — {cfg['neighborhood']} · pre-{r['pre_year']} (before {cfg['highway']})\n"
-        f"R1 optimal search: +{r['n_added']} / -{r['n_removed']} streets, "
-        f"access +{r['access_gain']*100:.1f}% "
-        f"(len {r['len0_km']}→{r['len_opt_km']}km)", fontsize=9)
+    S.title(ax,
+            f"{cfg['city']} — {cfg['neighborhood']} · pre-{r['pre_year']} (before {cfg['highway']})\n"
+            f"R1 optimal search: +{r['n_added']} / -{r['n_removed']} streets, "
+            f"access +{r['access_gain']*100:.1f}% "
+            f"(len {r['len0_km']}→{r['len_opt_km']}km)", fontsize=9)
+    S.legend(ax, [
+        ("line", S.C["added"], "added street"),
+        ("dashed", S.C["removed"], "removed street"),
+        ("dot", S.C["landmark"], "landmark (HOLC-D)"),
+        ("fill", S.C["holc_d"], "redlined (HOLC-D)"),
+        ("band", S.C["barrier"], "future highway ROW"),
+        ("thin", S.C["base"], "1958 street grid"),
+    ])
     ax.set_aspect("equal"); ax.set_axis_off()
     fig.tight_layout(); fig.savefig(path, dpi=130); plt.close(fig)
 

@@ -47,14 +47,15 @@ from shapely.prepared import prep
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+import pf_style as S
 from pf_common import BND_DIR, CITIES, HOLC_GPKG, RES
 from pf_graph import _graph_from_lines, _noded_lines
 
 warnings.filterwarnings("ignore")
 
 M2_PER_KM2 = 1e6
-GRADES = [("A", "green", "#1a9850"), ("B", "blue", "#4575b4"),
-          ("C", "yellow", "#f6c342"), ("D", "red", "#d73027")]
+GRADES = [("A", "green", S.GREEN), ("B", "blue", S.BLUE),
+          ("C", "yellow", S.YELLOW), ("D", "red", S.RED)]
 
 
 def _yr(s):
@@ -173,15 +174,23 @@ def draw(slug, pre_s, post_s, lay, grade_df, post_year, path):
     for i, (streets, yr, ttl) in enumerate([(pre_s, pre_yr, "PRE"),
                                             (post_s, post_year, "POST")]):
         ax = fig.add_subplot(1, 3, i + 1)
-        gpd.GeoSeries([omega]).plot(ax=ax, facecolor="none", edgecolor="#bbb", lw=1)
-        gpd.GeoSeries([holc_d]).plot(ax=ax, facecolor="#d73027", alpha=0.09,
-                                     edgecolor="#d73027", lw=0.5)
-        gpd.GeoSeries([barrier]).plot(ax=ax, facecolor="#333", alpha=0.22, edgecolor="none")
-        gpd.clip(streets, omega).plot(ax=ax, color="#555", lw=0.6)
+        gpd.clip(streets, omega).plot(ax=ax, color=S.C["base"], lw=0.6, zorder=2)
+        gpd.GeoSeries([holc_d]).plot(ax=ax, facecolor=S.C["holc_d"], alpha=0.11,
+                                     edgecolor=S.C["holc_d"], lw=0.5, zorder=1)
+        gpd.GeoSeries([barrier]).plot(ax=ax, facecolor=S.C["barrier"], alpha=0.35,
+                                      edgecolor="none", zorder=1)
+        gpd.GeoSeries([omega]).plot(ax=ax, facecolor="none", edgecolor=S.C["omega"],
+                                    lw=1.1, zorder=3)
         if ttl == "PRE" and len(gone):
-            gone.plot(ax=ax, color="#d73027", lw=1.8)
-        ax.set_title(f"{ttl} {yr}" + ("  (red = demolished by "
-                     f"{post_year})" if ttl == "PRE" else ""), fontsize=10)
+            gone.plot(ax=ax, color=S.C["demolished"], lw=1.9, zorder=4)
+        S.title(ax, f"{ttl} {yr}", fontsize=11)
+        if ttl == "PRE":
+            S.legend(ax, [
+                ("line", S.C["demolished"], f"demolished by {post_year}"),
+                ("fill", S.C["holc_d"], "redlined (HOLC-D)"),
+                ("band", S.C["barrier"], "highway ROW"),
+                ("thin", S.C["base"], f"{pre_yr} street grid"),
+            ], fontsize=7.5)
         ax.set_aspect("equal"); ax.set_axis_off()
 
     # per-grade demolition-% bar
@@ -189,15 +198,19 @@ def draw(slug, pre_s, post_s, lay, grade_df, post_year, path):
     labels = [f"{g}\n({c})" for g, c, _ in GRADES]
     vals = [grade_df.loc[grade_df.grade == g, "pct_demolished"].values for g, _, _ in GRADES]
     vals = [v[0] if len(v) else 0 for v in vals]
-    ax.bar(np.arange(len(GRADES)), vals, color=[c3 for _, _, c3 in GRADES])
-    ax.set_xticks(np.arange(len(GRADES))); ax.set_xticklabels(labels, fontsize=9)
-    ax.set_ylabel(f"% of 1958 street-km demolished by {post_year}")
-    ax.set_title("Demolition intensity by HOLC grade", fontsize=10)
+    ax.bar(np.arange(len(GRADES)), vals, color=[c3 for _, _, c3 in GRADES], zorder=3)
+    ax.set_xticks(np.arange(len(GRADES)))
+    ax.set_xticklabels(labels, fontsize=9, color=S.INK2)
+    ax.set_ylabel(f"% of {pre_yr} street-km demolished by {post_year}", color=S.INK2)
+    S.title(ax, "Demolition intensity by HOLC grade", fontsize=11)
     for i, v in enumerate(vals):
-        ax.text(i, v + 0.1, f"{v:.1f}%", ha="center", fontsize=9)
+        ax.text(i, v + 0.1, f"{v:.1f}%", ha="center", fontsize=9, color=S.INK2)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
 
     fig.suptitle(f"{cfg['city']} — {cfg['neighborhood']} · {cfg['highway']} "
-                 f"severance (Regime 2, real OHM {pre_yr}→{post_year})", fontsize=12)
+                 f"severance (Regime 2, real OHM {pre_yr}→{post_year})",
+                 fontsize=12, color=S.INK)
     fig.tight_layout(); fig.savefig(path, dpi=130); plt.close(fig)
 
 
