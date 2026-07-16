@@ -209,22 +209,22 @@ def draw(art, path):
     G, pos, lay = art["G"], art["pos"], art["lay"]
     fig, ax = plt.subplots(figsize=(7.5, 7.8))
     for u, v in G.edges:
-        ax.plot(*zip(pos[u], pos[v]), color=S.C["base"], lw=0.6, zorder=2)
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["base"], lw=0.5, zorder=2)
     has_water = art.get("excl") is not None
     if has_water:
-        gpd.GeoSeries([art["excl"]]).plot(ax=ax, facecolor=S.C["water"], alpha=0.35,
+        gpd.GeoSeries([art["excl"]]).plot(ax=ax, facecolor=S.C["water"], alpha=0.30,
                                           edgecolor="none", zorder=1)
-    gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor=S.C["barrier"], alpha=0.35,
+    gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor=S.C["barrier"], alpha=0.30,
                                          edgecolor="none", zorder=1)
     gpd.GeoSeries([lay["omega"]]).plot(ax=ax, facecolor="none",
-                                       edgecolor=S.C["omega"], lw=1.2, zorder=3)
+                                       edgecolor=S.C["omega"], lw=1.0, zorder=3)
     for (u, v) in art["added"]:
-        ax.plot(*zip(pos[u], pos[v]), color=S.C["added"], lw=2.8, zorder=4,
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["added"], lw=2.0, zorder=4,
                 solid_capstyle="round")
     for n in art["A"]:
-        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_a"]), zorder=5)
+        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_a"], ms=6), zorder=5)
     for n in art["B"]:
-        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_b"]), zorder=5)
+        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_b"], ms=6), zorder=5)
     r = art["row"]
     S.title(ax, f"{cfg['city']} — {cfg['neighborhood']} · {cfg['highway']}\n"
                 f"restore {r['n_added']} crossings, {r['added_len_km']}km, "
@@ -266,21 +266,21 @@ def draw_panel(art, ax):
     cfg = CITIES[art["slug"]]
     G, pos, lay = art["G"], art["pos"], art["lay"]
     for u, v in G.edges:
-        ax.plot(*zip(pos[u], pos[v]), color=S.C["base"], lw=0.5, zorder=2)
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["base"], lw=0.4, zorder=2)
     if art.get("excl") is not None:
-        gpd.GeoSeries([art["excl"]]).plot(ax=ax, facecolor=S.C["water"], alpha=0.35,
+        gpd.GeoSeries([art["excl"]]).plot(ax=ax, facecolor=S.C["water"], alpha=0.30,
                                           edgecolor="none", zorder=1)
-    gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor=S.C["barrier"], alpha=0.35,
+    gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor=S.C["barrier"], alpha=0.30,
                                          edgecolor="none", zorder=1)
     gpd.GeoSeries([lay["omega"]]).plot(ax=ax, facecolor="none",
-                                       edgecolor=S.C["omega"], lw=1.0, zorder=3)
+                                       edgecolor=S.C["omega"], lw=0.9, zorder=3)
     for (u, v) in art["added"]:
-        ax.plot(*zip(pos[u], pos[v]), color=S.C["added"], lw=2.4, zorder=4,
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["added"], lw=1.7, zorder=4,
                 solid_capstyle="round")
     for n in art["A"]:
-        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_a"], ms=5), zorder=5)
+        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_a"], ms=4.5), zorder=5)
     for n in art["B"]:
-        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_b"], ms=5), zorder=5)
+        ax.plot(pos[n][0], pos[n][1], **S.dot(S.C["side_b"], ms=4.5), zorder=5)
     r = art["row"]
     S.title(ax, f"{cfg['city']} · {cfg['highway']}\n"
                 f"+{r['n_added']} crossings · reconnect +{r['reconnect_gain']*100:.1f}%",

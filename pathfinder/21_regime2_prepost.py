@@ -182,7 +182,7 @@ def draw(slug, pre_s, post_s, lay, grade_df, post_year, path):
         gpd.GeoSeries([omega]).plot(ax=ax, facecolor="none", edgecolor=S.C["omega"],
                                     lw=1.1, zorder=3)
         if ttl == "PRE" and len(gone):
-            gone.plot(ax=ax, color=S.C["demolished"], lw=1.9, zorder=4)
+            gone.plot(ax=ax, color=S.C["demolished"], lw=1.4, zorder=4)
         S.title(ax, f"{ttl} {yr}", fontsize=11)
         if ttl == "PRE":
             S.legend(ax, [

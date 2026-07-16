@@ -241,22 +241,23 @@ def draw(art, path):
     G0, pos, lay = art["G0"], art["pos"], art["lay"]
     fig, ax = plt.subplots(figsize=(7.5, 7.8))
     for u, v in G0.edges:
-        ax.plot(*zip(pos[u], pos[v]), color=S.C["base"], lw=0.6, zorder=2)
-    gpd.GeoSeries([lay["holc_d"]]).plot(ax=ax, facecolor=S.C["holc_d"], alpha=0.13,
-                                        edgecolor=S.C["holc_d"], lw=0.6, zorder=1)
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["base"], lw=0.4, zorder=2)
+    gpd.GeoSeries([lay["holc_d"]]).plot(ax=ax, facecolor=S.C["holc_d"], alpha=0.11,
+                                        edgecolor=S.C["holc_d"], lw=0.5, zorder=1)
     # highway footprint for reference (built AFTER this network)
-    gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor=S.C["barrier"], alpha=0.22,
+    gpd.GeoSeries([lay["barrier"]]).plot(ax=ax, facecolor=S.C["barrier"], alpha=0.20,
                                          edgecolor="none", zorder=1)
     gpd.GeoSeries([lay["omega"]]).plot(ax=ax, facecolor="none",
-                                       edgecolor=S.C["omega"], lw=1.1, zorder=3)
+                                       edgecolor=S.C["omega"], lw=1.0, zorder=3)
     for (u, v, w) in art["removed"]:
-        ax.plot(*zip(pos[u], pos[v]), color=S.C["removed"], lw=1.8, ls=(0, (3, 2)), zorder=4)
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["removed"], lw=0.9, ls=(0, (3, 2)),
+                alpha=0.7, zorder=4)
     for (u, v) in art["added"]:
-        ax.plot(*zip(pos[u], pos[v]), color=S.C["added"], lw=2.4, zorder=5,
-                solid_capstyle="round")
+        ax.plot(*zip(pos[u], pos[v]), color=S.C["added"], lw=1.4, zorder=5,
+                alpha=0.9, solid_capstyle="round")
     lx = [pos[n][0] for n in art["land"]]
     ly = [pos[n][1] for n in art["land"]]
-    ax.plot(lx, ly, **S.dot(S.C["landmark"]), zorder=6)
+    ax.plot(lx, ly, **S.dot(S.C["landmark"], ms=5.5), zorder=6)
     r = art["row"]
     S.title(ax,
             f"{cfg['city']} — {cfg['neighborhood']} · pre-{r['pre_year']} (before {cfg['highway']})\n"
