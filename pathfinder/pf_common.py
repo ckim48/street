@@ -90,6 +90,13 @@ CITIES = {
         anchor=(-80.1990, 25.7870), build_start=1959, row_width=100.0,
         project_cost=None,
         cost_note="I-395 signature bridge / Connecting Miami; no firm removal figure"),
+    "kansas_city": dict(
+        city="Kansas City", state="MO", holc_match="Kansas City", county="29095",
+        cbsa="28140", utm=32615, highway="I-70", fullnames=["I- 70"],
+        neighborhood="18th & Vine",
+        anchor=(-94.5580, 39.0920), build_start=1956, row_width=70.0,
+        project_cost=None,
+        cost_note="I-70 severed the redlined 18th & Vine jazz district; no firm removal figure"),
 }
 
 CITY_SLUGS = list(CITIES.keys())

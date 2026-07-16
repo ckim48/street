@@ -270,7 +270,7 @@ def draw(art, path):
         ("dot", S.C["landmark"], "landmark (HOLC-D)"),
         ("fill", S.C["holc_d"], "redlined (HOLC-D)"),
         ("band", S.C["barrier"], "future highway ROW"),
-        ("thin", S.C["base"], "1958 street grid"),
+        ("thin", S.C["base"], f"{r['pre_year']} street grid"),
     ])
     ax.set_aspect("equal"); ax.set_axis_off()
     fig.tight_layout(); fig.savefig(path, dpi=130); plt.close(fig)
@@ -295,7 +295,7 @@ def main():
     ap.add_argument("--cities", nargs="*", default=["detroit"])
     ap.add_argument("--iters", type=int, default=3000)
     ap.add_argument("--landmarks", type=int, default=28)
-    ap.add_argument("--mu", type=float, default=0.08)
+    ap.add_argument("--mu", type=float, default=0.8)
     ap.add_argument("--seed", type=int, default=7)
     a = ap.parse_args()
 

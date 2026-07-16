@@ -257,8 +257,10 @@ def save_added(art):
 
 # highway severance form (for the summary colour encoding)
 HW_TYPE = {"detroit": "trench", "st_paul": "trench", "miami": "interchange",
-           "new_orleans": "elevated", "syracuse": "elevated"}
-TYPE_COLOR = {"trench": S.ORANGE, "interchange": S.YELLOW, "elevated": S.BLUE}
+           "new_orleans": "elevated", "syracuse": "elevated",
+           "kansas_city": "at-grade"}
+TYPE_COLOR = {"trench": S.ORANGE, "interchange": S.YELLOW, "elevated": S.BLUE,
+              "at-grade": S.VIOLET, "other": S.MUTED}
 
 
 def draw_panel(art, ax):
@@ -309,7 +311,7 @@ def draw_all(arts, path):
 
 def draw_summary(df, path):
     d = df.sort_values("reconnect_gain", ascending=False).reset_index(drop=True)
-    types = [HW_TYPE[s] for s in d["slug"]]
+    types = [HW_TYPE.get(s, "other") for s in d["slug"]]
     cols = [TYPE_COLOR[t] for t in types]
     xlab = [f"{c}\n{h}" for c, h in zip(d["city"], d["highway"])]
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(15, 6))
@@ -321,8 +323,9 @@ def draw_summary(df, path):
     a1.set_xticks(x); a1.set_xticklabels(xlab, fontsize=8, color=S.INK2)
     a1.set_ylabel("reconnect gain (%)", color=S.INK2)
     S.title(a1, "Reconnection benefit by city (colour = highway form)", fontsize=11)
-    a1.legend(handles=[S._handle("fill", TYPE_COLOR[t], t) for t in
-                       ["trench", "interchange", "elevated"]],
+    present = [t for t in ["trench", "interchange", "elevated", "at-grade", "other"]
+               if t in types]
+    a1.legend(handles=[S._handle("fill", TYPE_COLOR[t], t) for t in present],
               fontsize=8, frameon=True, edgecolor=S.GRID, labelcolor=S.INK2,
               title="highway form", title_fontsize=8)
     for sp in ("top", "right"):
@@ -338,7 +341,7 @@ def draw_summary(df, path):
         a2.spines[sp].set_visible(False)
 
     fig.suptitle("PathFinder Regime-3 — budget-constrained add-only street restoration "
-                 "(5 severed neighborhoods)", fontsize=13, color=S.INK)
+                 f"({len(d)} severed neighborhoods)", fontsize=13, color=S.INK)
     fig.tight_layout(); fig.savefig(path, dpi=130); plt.close(fig)
 
 

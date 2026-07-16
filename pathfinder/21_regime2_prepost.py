@@ -257,8 +257,8 @@ def main():
                          pre_link_node_ratio=m["link_node_ratio"],
                          pre_median_block_m=m["median_block_m"]))
     gdf = pd.DataFrame(rows)
-    gdf.to_csv(RES / "regime2_grade_uoi.csv", index=False)
-    print("\n  per-grade demolition (1958 street-km removed by "
+    gdf.to_csv(RES / f"regime2_grade_uoi_{slug}.csv", index=False)
+    print(f"\n  per-grade demolition ({pre_yr} street-km removed by "
           f"{a.post_year}):")
     for r in rows:
         print(f"    {r['grade']} ({r['color']:6s}): alive {r['alive_km']:7.1f}km  "
@@ -288,8 +288,8 @@ def main():
         access_change_pct=round(100 * (acc_post - acc_pre) / acc_pre, 2) if acc_pre else 0,
         n_landmarks=len(land),
     )])
-    sev.to_csv(RES / "regime2_severance.csv", index=False)
-    print(f"\n  Ω (Black-Bottom-scale): demolished {demo_o:.1f}km of {alive_o:.1f}km "
+    sev.to_csv(RES / f"regime2_severance_{slug}.csv", index=False)
+    print(f"\n  Ω (neighborhood-scale): demolished {demo_o:.1f}km of {alive_o:.1f}km "
           f"({100*demo_o/alive_o:.1f}% of the 1958 grid)")
     print(f"  intra-community access (landmark mean dist): "
           f"{acc_pre:.0f}m → {acc_post:.0f}m ({sev.access_change_pct.values[0]:+.1f}%)")
