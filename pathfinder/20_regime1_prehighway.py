@@ -133,10 +133,10 @@ def add_candidates(G, pos, omega):
     return out
 
 
-def optimize(slug, iters, n_land, mu, seed):
+def optimize(slug, iters, n_land, mu, seed, graph=None):
     cfg = CITIES[slug]
     rng = np.random.default_rng(seed)
-    G0, pos, lay = build_pre_graph(slug)
+    G0, pos, lay = graph if graph is not None else build_pre_graph(slug)
     if G0.number_of_nodes() == 0:
         raise SystemExit(f"{slug}: empty pre-highway graph (no OHM coverage)")
     G = G0.copy()

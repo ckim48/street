@@ -1,0 +1,6 @@
+slug,city,neighborhood,highway,form,pre_year,post_year,pre_km,demolished_km,pct_demolished
+detroit,Detroit,Black Bottom / Paradise Valley,I-375,trench,1954,1968,64.4,6.95,10.79
+syracuse,Syracuse,15th Ward,I-81,elevated,1958,1973,16.5,0.47,2.82
+new_orleans,New Orleans,Treme / Claiborne,I-10 (Claiborne),elevated,1966,1973,30.9,0.0,0.0
+st_paul,St. Paul,Rondo,I-94,trench,1951,1969,47.7,5.39,11.3
+miami,Miami,Overtown,I-95 / I-395,interchange,1950,1970,23.9,0.32,1.34
